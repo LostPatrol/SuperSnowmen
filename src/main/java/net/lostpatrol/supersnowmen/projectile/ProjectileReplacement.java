@@ -9,6 +9,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.SnowGolem;
@@ -39,6 +40,7 @@ import java.util.List;
 
 public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
+    public static final String NO_BOTTLE_DRAGON_BREATH_TAG = "SuperSnowmenNoBottleDragonBreath";
     private static final String WITHER_COUNTER_TAG = "SuperSnowmenWitherCounter";
 
     private ProjectileReplacement() {
@@ -59,6 +61,9 @@ public final class ProjectileReplacement {
                 return;
             }
             Entity replacement = createReplacement(selected, snowball, snowman);
+            if (replacement == null && selected.type != SnowmanUpgradeType.SCULK_SHRIEKER) {
+                return;
+            }
             event.setCanceled(true);
             snowball.discard();
             if (replacement != null) {
@@ -93,7 +98,7 @@ public final class ProjectileReplacement {
             case SPECTRAL_ARROW -> shootArrow(new SpectralArrow(owner.level(), owner), snowball, velocity);
             case FIRE_CHARGE -> copyMotion(new SmallFireball(owner.level(), owner, direction.x, direction.y, direction.z), snowball, velocity);
             case FIREWORK_ROCKET -> copyMotion(new FireworkRocketEntity(owner.level(), selected.stack.copy(), owner, snowball.getX(), snowball.getY(), snowball.getZ(), true), snowball, velocity);
-            case DRAGON_BREATH -> copyMotion(new DragonFireball(owner.level(), owner, direction.x, direction.y, direction.z), snowball, velocity);
+            case DRAGON_BREATH -> createDragonFireball(snowball, owner, direction, velocity);
             case TNT -> createTnt(snowball, owner, velocity);
             case WITHER_SKULL -> createWitherSkull(snowball, owner, direction, velocity);
             case SCULK_SHRIEKER -> {
@@ -124,6 +129,12 @@ public final class ProjectileReplacement {
         tnt.setFuse(40);
         tnt.getPersistentData().putBoolean(NO_BLOCK_DAMAGE_TAG, true);
         return tnt;
+    }
+
+    private static Entity createDragonFireball(Snowball snowball, SnowGolem owner, Vec3 direction, Vec3 velocity) {
+        DragonFireball fireball = new DragonFireball(owner.level(), owner, direction.x, direction.y, direction.z);
+        fireball.getPersistentData().putBoolean(NO_BOTTLE_DRAGON_BREATH_TAG, true);
+        return copyMotion(fireball, snowball, velocity);
     }
 
     private static Entity createWitherSkull(Snowball snowball, SnowGolem owner, Vec3 direction, Vec3 velocity) {
@@ -158,10 +169,19 @@ public final class ProjectileReplacement {
     private static Entity createShulkerBullet(Snowball snowball, SnowGolem owner, Vec3 velocity) {
         LivingEntity target = owner.getTarget();
         if (target != null) {
+            owner.level().playSound(
+                    null,
+                    owner.getX(),
+                    owner.getY(),
+                    owner.getZ(),
+                    SoundEvents.SHULKER_SHOOT,
+                    SoundSource.HOSTILE,
+                    2.0F,
+                    (owner.getRandom().nextFloat() - owner.getRandom().nextFloat()) * 0.2F + 1.0F
+            );
             return new ShulkerBullet(owner.level(), owner, target, Direction.Axis.Y);
         }
-        ShulkerBullet bullet = new ShulkerBullet(owner.level(), owner, owner, Direction.Axis.Y);
-        return copyMotion(bullet, snowball, velocity);
+        return null;
     }
 
     private static Entity copyMotion(Entity entity, Snowball snowball, Vec3 velocity) {
@@ -201,6 +221,13 @@ public final class ProjectileReplacement {
         if (SuperSnowmenConfig.consumeProjectileItems || (potionLike && SuperSnowmenConfig.consumePotionProjectiles)) {
             inventory.extractItem(selected.slot, 1, false);
         }
+    }
+
+    public static void tagDragonBreathCloud(AreaEffectCloud cloud) {
+        if (!(cloud.getOwner() instanceof SnowGolem)) {
+            return;
+        }
+        cloud.getPersistentData().putBoolean(NO_BOTTLE_DRAGON_BREATH_TAG, true);
     }
 
     private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack) {

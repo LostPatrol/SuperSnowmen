@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.menu.SuperSnowmenMenus;
 import net.lostpatrol.supersnowmen.snowman.SnowmanEvents;
+import net.lostpatrol.supersnowmen.snowman.SnowmanModEvents;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -18,6 +19,7 @@ public class SuperSnowmen {
     public SuperSnowmen(FMLJavaModLoadingContext context) {
         var modBus = context.getModEventBus();
         SuperSnowmenMenus.MENUS.register(modBus);
+        modBus.addListener(SnowmanModEvents::registerCapabilities);
         context.registerConfig(ModConfig.Type.SERVER, SuperSnowmenConfig.SPEC);
         MinecraftForge.EVENT_BUS.register(SnowmanEvents.class);
     }
