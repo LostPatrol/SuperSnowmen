@@ -3,6 +3,7 @@ package net.lostpatrol.supersnowmen.snowman;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.SnowGolem;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -23,9 +24,21 @@ public final class SnowmanUpgradeEffects {
         ArmorTier tier = ArmorTier.from(inventory);
         setBaseValue(snowman.getAttribute(Attributes.ARMOR), tier.armor);
         setBaseValue(snowman.getAttribute(Attributes.ARMOR_TOUGHNESS), tier.toughness);
-        snowman.setRemainingFireTicks(tier.fireproof ? 0 : snowman.getRemainingFireTicks());
         if (inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL)) {
             snowman.removeEffect(MobEffects.WITHER);
+        }
+        if (inventory.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL)) {
+            snowman.removeEffect(MobEffects.LEVITATION);
+        }
+        maintainEffects(snowman, inventory);
+    }
+
+    public static void maintainEffects(SnowGolem snowman, SnowmanUpgradeInventory inventory) {
+        if (inventory.hasProjectileUpgrade(SnowmanUpgradeType.FIRE_CHARGE)) {
+            MobEffectInstance current = snowman.getEffect(MobEffects.FIRE_RESISTANCE);
+            if (current == null || (current.getAmplifier() == 0 && current.getDuration() <= 20)) {
+                snowman.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 40, 0, false, true));
+            }
         }
     }
 
@@ -40,23 +53,21 @@ public final class SnowmanUpgradeEffects {
     }
 
     public enum ArmorTier {
-        NONE(0.0D, 0.0D, false, false, false),
-        ICE(5.0D, 0.0D, true, false, false),
-        PACKED_ICE(10.0D, 0.0D, true, true, false),
-        BLUE_ICE(15.0D, 5.0D, true, true, true);
+        NONE(0.0D, 0.0D, false, false),
+        ICE(5.0D, 0.0D, true, false),
+        PACKED_ICE(10.0D, 0.0D, true, true),
+        BLUE_ICE(15.0D, 5.0D, true, true);
 
         public final double armor;
         public final double toughness;
         public final boolean warmImmune;
         public final boolean wetImmune;
-        public final boolean fireproof;
 
-        ArmorTier(double armor, double toughness, boolean warmImmune, boolean wetImmune, boolean fireproof) {
+        ArmorTier(double armor, double toughness, boolean warmImmune, boolean wetImmune) {
             this.armor = armor;
             this.toughness = toughness;
             this.warmImmune = warmImmune;
             this.wetImmune = wetImmune;
-            this.fireproof = fireproof;
         }
 
         static ArmorTier from(SnowmanUpgradeInventory inventory) {

@@ -1,5 +1,6 @@
 package net.lostpatrol.supersnowmen.snowman;
 
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -15,7 +16,8 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
     public static final int PLUGIN_COUNT = 20;
     public static final int SPECIAL_START = PLUGIN_START + PLUGIN_COUNT;
     public static final int SPECIAL_COUNT = 3;
-    public static final int SLOT_COUNT = SPECIAL_START + SPECIAL_COUNT;
+    public static final int BASE_DIAMOND_SLOT = SPECIAL_START + SPECIAL_COUNT;
+    public static final int SLOT_COUNT = BASE_DIAMOND_SLOT + 1;
 
     @Nullable
     private final SnowGolem owner;
@@ -30,6 +32,13 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
     }
 
     @Override
+    public void deserializeNBT(CompoundTag nbt) {
+        CompoundTag migrated = nbt.copy();
+        migrated.putInt("Size", SLOT_COUNT);
+        super.deserializeNBT(migrated);
+    }
+
+    @Override
     protected void onContentsChanged(int slot) {
         if (owner != null) {
             SnowmanUpgradeEffects.apply(owner, this);
@@ -38,6 +47,9 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
 
     @Override
     public int getSlotLimit(int slot) {
+        if (slot == BASE_DIAMOND_SLOT) {
+            return 4;
+        }
         return isPluginSlot(slot) ? 1 : 64;
     }
 
@@ -49,6 +61,9 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
         }
         if (slot == BASE_SNOW_SLOT) {
             return item == Items.SNOW_BLOCK;
+        }
+        if (slot == BASE_DIAMOND_SLOT) {
+            return item == Items.DIAMOND;
         }
         if (isPluginSlot(slot)) {
             return SnowmanUpgradeType.byItem(item) != null;

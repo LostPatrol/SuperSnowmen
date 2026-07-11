@@ -31,6 +31,7 @@ import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
@@ -137,10 +138,6 @@ public final class SnowmanEvents {
                     && event.getSource().getDirectEntity() instanceof AbstractArrow;
             if ((tier.warmImmune && event.getSource().is(DamageTypes.ON_FIRE))
                     || (tier.wetImmune && event.getSource().is(DamageTypes.DROWN))
-                    || (tier.fireproof && (event.getSource().is(DamageTypes.IN_FIRE)
-                    || event.getSource().is(DamageTypes.ON_FIRE)
-                    || event.getSource().is(DamageTypes.LAVA)
-                    || event.getSource().is(DamageTypes.HOT_FLOOR)))
                     || dragonBreathImmune
                     || explosionImmune
                     || (witherEquipped && event.getSource().is(DamageTypes.WITHER))
@@ -151,15 +148,30 @@ public final class SnowmanEvents {
     }
 
     public static void onMobEffectApplicable(MobEffectEvent.Applicable event) {
-        if (!(event.getEntity() instanceof SnowGolem snowman)
-                || event.getEffectInstance().getEffect() != MobEffects.WITHER) {
+        if (!(event.getEntity() instanceof SnowGolem snowman)) {
             return;
         }
-        if (SnowmanUpgradeAccess.get(snowman)
-                .map(inventory -> inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL))
-                .orElse(false)) {
-            event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+        SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
+            boolean rejectWither = event.getEffectInstance().getEffect() == MobEffects.WITHER
+                    && inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL);
+            boolean rejectLevitation = event.getEffectInstance().getEffect() == MobEffects.LEVITATION
+                    && inventory.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
+            if (rejectWither || rejectLevitation) {
+                event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+            }
+        });
+    }
+
+    public static void onLivingHurt(LivingHurtEvent event) {
+        if (!(event.getSource().getEntity() instanceof SnowGolem snowman)) {
+            return;
         }
+        SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
+            int diamonds = inventory.getStackInSlot(SnowmanUpgradeInventory.BASE_DIAMOND_SLOT).getCount();
+            if (diamonds > 0) {
+                event.setAmount(event.getAmount() + diamonds);
+            }
+        });
     }
 
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {
@@ -167,6 +179,8 @@ public final class SnowmanEvents {
                 || !(snowman.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
             return;
         }
+        SnowmanUpgradeAccess.get(snowman).ifPresent(inventory ->
+                SnowmanUpgradeEffects.maintainEffects(snowman, inventory));
         boolean powered = snowman.getHealth() <= snowman.getMaxHealth() / 2.0F
                 && SnowmanUpgradeAccess.get(snowman)
                 .map(inventory -> inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL))

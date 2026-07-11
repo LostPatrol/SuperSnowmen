@@ -75,7 +75,8 @@ public class SnowmanUpgradeMenu extends AbstractContainerMenu {
 
     private void addUpgradeSlots() {
         addSlot(new LimitedSlotItemHandler(upgrades, SnowmanUpgradeInventory.BASE_PUMPKIN_SLOT, 17, 27));
-        addSlot(new LimitedSlotItemHandler(upgrades, SnowmanUpgradeInventory.BASE_SNOW_SLOT, 17, 54));
+        addSlot(new LimitedSlotItemHandler(upgrades, SnowmanUpgradeInventory.BASE_SNOW_SLOT, 17, 49));
+        addSlot(new LimitedSlotItemHandler(upgrades, SnowmanUpgradeInventory.BASE_DIAMOND_SLOT, 17, 71));
 
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 5; col++) {
@@ -86,7 +87,7 @@ public class SnowmanUpgradeMenu extends AbstractContainerMenu {
 
         for (int row = 0; row < SnowmanUpgradeInventory.SPECIAL_COUNT; row++) {
             int slot = SnowmanUpgradeInventory.SPECIAL_START + row;
-            addSlot(new LimitedSlotItemHandler(upgrades, slot, 164, 27 + row * 20));
+            addSlot(new LimitedSlotItemHandler(upgrades, slot, 164, 27 + row * 22));
         }
     }
 

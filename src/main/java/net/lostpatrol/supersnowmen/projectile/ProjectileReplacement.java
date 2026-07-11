@@ -236,8 +236,8 @@ public final class ProjectileReplacement {
         explosion.putIntArray("FadeColors", randomFadeFireworkColors(random));
 
         int effectRoll = random.nextInt(100);
-        explosion.putBoolean("Trail", effectRoll >= 60);
-        explosion.putBoolean("Flicker", (effectRoll >= 50 && effectRoll < 60) || effectRoll >= 85);
+        explosion.putBoolean("Trail", effectRoll >= 70);
+        explosion.putBoolean("Flicker", (effectRoll >= 65 && effectRoll < 70) || effectRoll >= 95);
     }
 
     private static int[] randomPrimaryFireworkColors(RandomSource random) {
