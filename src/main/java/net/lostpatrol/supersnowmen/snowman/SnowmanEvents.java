@@ -3,6 +3,8 @@ package net.lostpatrol.supersnowmen.snowman;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.menu.SnowmanUpgradeMenu;
+import net.lostpatrol.supersnowmen.network.NetworkHandler;
+import net.lostpatrol.supersnowmen.network.packet.PacketOpenSnowmanUpgrade;
 import net.lostpatrol.supersnowmen.projectile.ProjectileReplacement;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -32,10 +34,6 @@ public final class SnowmanEvents {
         }
     }
 
-    public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
-        handleSnowmanInteract(event, event.getTarget());
-    }
-
     public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         handleSnowmanInteract(event, event.getTarget());
     }
@@ -45,26 +43,41 @@ public final class SnowmanEvents {
             return;
         }
         Player player = event.getEntity();
-        if (player.level().isClientSide || !(player instanceof ServerPlayer serverPlayer)) {
+        if (player.level().isClientSide) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            player.swing(event.getHand());
+            NetworkHandler.sendOpenSnowmanUpgradeToServer(new PacketOpenSnowmanUpgrade(snowman.getId(), player.isShiftKeyDown()));
             return;
         }
 
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
+        if (player instanceof ServerPlayer serverPlayer) {
+            handleSnowmanInteraction(serverPlayer, snowman, player.isShiftKeyDown());
+        }
+    }
+
+    public static void handleSnowmanInteraction(ServerPlayer player, SnowGolem snowman, boolean withdraw) {
+        if (!SuperSnowmenConfig.enableUpgrades || !snowman.isAlive() || player.distanceToSqr(snowman) > 64.0D) {
+            return;
+        }
+
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
-            if (player.isShiftKeyDown()) {
-                withdrawAll(serverPlayer, inventory);
+            if (withdraw) {
+                withdrawAll(player, inventory);
                 SnowmanUpgradeEffects.apply(snowman, inventory);
-            } else {
-                NetworkHooks.openScreen(
-                        serverPlayer,
-                        new SimpleMenuProvider(
-                                (containerId, playerInventory, p) -> new SnowmanUpgradeMenu(containerId, playerInventory, snowman.getId()),
-                                Component.translatable("container.super_snowmen.snowman_upgrade")
-                        ),
-                        buf -> buf.writeInt(snowman.getId())
-                );
+                return;
             }
+
+            NetworkHooks.openScreen(
+                    player,
+                    new SimpleMenuProvider(
+                            (containerId, playerInventory, p) -> new SnowmanUpgradeMenu(containerId, playerInventory, snowman.getId()),
+                            Component.translatable("container.super_snowmen.snowman_upgrade")
+                    ),
+                    buf -> buf.writeInt(snowman.getId())
+            );
         });
     }
 

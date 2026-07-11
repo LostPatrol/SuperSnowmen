@@ -3,10 +3,11 @@ package net.lostpatrol.supersnowmen;
 import com.mojang.logging.LogUtils;
 import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.menu.SuperSnowmenMenus;
+import net.lostpatrol.supersnowmen.network.NetworkHandler;
 import net.lostpatrol.supersnowmen.snowman.SnowmanEvents;
 import net.lostpatrol.supersnowmen.snowman.SnowmanModEvents;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraft.world.entity.Entity;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -21,12 +22,12 @@ public class SuperSnowmen {
         var modBus = context.getModEventBus();
         SuperSnowmenMenus.MENUS.register(modBus);
         modBus.addListener(SnowmanModEvents::registerCapabilities);
+        NetworkHandler.register();
         context.registerConfig(ModConfig.Type.SERVER, SuperSnowmenConfig.SPEC);
 
         var forgeBus = MinecraftForge.EVENT_BUS;
         forgeBus.addGenericListener(Entity.class, SnowmanEvents::attachCapabilities);
         forgeBus.addListener(SnowmanEvents::onEntityInteract);
-        forgeBus.addListener(SnowmanEvents::onEntityInteractSpecific);
         forgeBus.addListener(SnowmanEvents::onEntityJoinLevel);
         forgeBus.addListener(SnowmanEvents::onLivingDamage);
         forgeBus.addListener(SnowmanEvents::onExplosionDetonate);
