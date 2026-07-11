@@ -14,12 +14,14 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.RangedAttackGoal;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
@@ -27,6 +29,8 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -120,6 +124,10 @@ public final class SnowmanEvents {
                     && isDragonBreathDamage(event);
             boolean explosionImmune = inventory.hasProjectileUpgrade(SnowmanUpgradeType.TNT)
                     && (event.getSource().is(DamageTypes.EXPLOSION) || event.getSource().is(DamageTypes.PLAYER_EXPLOSION));
+            boolean witherEquipped = inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL);
+            boolean poweredArrowShield = witherEquipped
+                    && snowman.getHealth() <= snowman.getMaxHealth() / 2.0F
+                    && event.getSource().getDirectEntity() instanceof AbstractArrow;
             if ((tier.warmImmune && event.getSource().is(DamageTypes.ON_FIRE))
                     || (tier.wetImmune && event.getSource().is(DamageTypes.DROWN))
                     || (tier.fireproof && (event.getSource().is(DamageTypes.IN_FIRE)
@@ -127,10 +135,49 @@ public final class SnowmanEvents {
                     || event.getSource().is(DamageTypes.LAVA)
                     || event.getSource().is(DamageTypes.HOT_FLOOR)))
                     || dragonBreathImmune
-                    || explosionImmune) {
+                    || explosionImmune
+                    || (witherEquipped && event.getSource().is(DamageTypes.WITHER))
+                    || poweredArrowShield) {
                 event.setCanceled(true);
             }
         });
+    }
+
+    public static void onMobEffectApplicable(MobEffectEvent.Applicable event) {
+        if (!(event.getEntity() instanceof SnowGolem snowman)
+                || event.getEffectInstance().getEffect() != MobEffects.WITHER) {
+            return;
+        }
+        if (SnowmanUpgradeAccess.get(snowman)
+                .map(inventory -> inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL))
+                .orElse(false)) {
+            event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+        }
+    }
+
+    public static void onLivingTick(LivingEvent.LivingTickEvent event) {
+        if (!(event.getEntity() instanceof SnowGolem snowman)
+                || !(snowman.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)
+                || snowman.getHealth() > snowman.getMaxHealth() / 2.0F) {
+            return;
+        }
+        boolean powered = SnowmanUpgradeAccess.get(snowman)
+                .map(inventory -> inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL))
+                .orElse(false);
+        if (!powered) {
+            return;
+        }
+        for (int i = 0; i < 3; i++) {
+            if (snowman.getRandom().nextInt(4) == 0) {
+                serverLevel.sendParticles(
+                        ParticleTypes.ENTITY_EFFECT,
+                        snowman.getX() + snowman.getRandom().nextGaussian() * 0.3D,
+                        snowman.getY() + snowman.getRandom().nextDouble() * snowman.getBbHeight(),
+                        snowman.getZ() + snowman.getRandom().nextGaussian() * 0.3D,
+                        0, 0.7D, 0.7D, 0.5D, 1.0D
+                );
+            }
+        }
     }
 
     public static void onLivingDrops(LivingDropsEvent event) {

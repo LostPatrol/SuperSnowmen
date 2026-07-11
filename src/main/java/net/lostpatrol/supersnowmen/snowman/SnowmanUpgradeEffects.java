@@ -3,6 +3,7 @@ package net.lostpatrol.supersnowmen.snowman;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.SnowGolem;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -23,6 +24,9 @@ public final class SnowmanUpgradeEffects {
         setBaseValue(snowman.getAttribute(Attributes.ARMOR), tier.armor);
         setBaseValue(snowman.getAttribute(Attributes.ARMOR_TOUGHNESS), tier.toughness);
         snowman.setRemainingFireTicks(tier.fireproof ? 0 : snowman.getRemainingFireTicks());
+        if (inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL)) {
+            snowman.removeEffect(MobEffects.WITHER);
+        }
     }
 
     public static ArmorTier armorTier(SnowmanUpgradeInventory inventory) {

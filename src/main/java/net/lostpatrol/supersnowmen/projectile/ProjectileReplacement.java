@@ -16,6 +16,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.projectile.AbstractArrow;
@@ -34,19 +35,25 @@ import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.entity.projectile.WitherSkull;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.FireworkRocketItem;
 import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
     private static final String WITHER_COUNTER_TAG = "SuperSnowmenWitherCounter";
+    private static final String FIREWORK_COUNTER_TAG = "SuperSnowmenFireworkCounter";
 
     private ProjectileReplacement() {
     }
@@ -131,7 +138,7 @@ public final class ProjectileReplacement {
             case TNT -> createTnt(snowball, owner, velocity);
             case WITHER_SKULL -> createWitherSkull(snowball, owner, directDirection);
             case SCULK_SHRIEKER -> {
-                sonicBoom(snowball, owner, directDirection);
+                sonicBoom(owner);
                 yield null;
             }
             case TOTEM -> {
@@ -141,7 +148,7 @@ public final class ProjectileReplacement {
             case TIPPED_ARROW -> createTippedArrow(selected.stack, snowball, owner, velocity);
             case POTION, SPLASH_POTION -> createPotion(selected.stack, snowball, owner, velocity);
             case EGG -> copyMotion(new ThrownEgg(owner.level(), owner), snowball, velocity);
-            case TRIDENT -> shootArrow(new ThrownTrident(owner.level(), owner, new ItemStack(Items.TRIDENT)), snowball, velocity);
+            case TRIDENT -> shootArrow(createTrident(selected.stack, owner), snowball, velocity);
             case SHULKER_SHELL -> createShulkerBullet(owner);
         };
     }
@@ -164,7 +171,18 @@ public final class ProjectileReplacement {
     }
 
     private static Entity createSmallFireball(Snowball snowball, SnowGolem owner, Vec3 direction) {
-        SmallFireball fireball = new SmallFireball(owner.level(), owner, direction.x, direction.y, direction.z);
+        LivingEntity target = owner.getTarget();
+        Vec3 aim = direction;
+        if (target != null) {
+            double distanceSqr = owner.distanceToSqr(target);
+            double spread = Math.sqrt(Math.sqrt(distanceSqr)) * 0.5D;
+            aim = new Vec3(
+                    owner.getRandom().triangle(target.getX() - owner.getX(), 2.297D * spread),
+                    target.getY(0.5D) - owner.getY(0.5D),
+                    owner.getRandom().triangle(target.getZ() - owner.getZ(), 2.297D * spread)
+            );
+        }
+        SmallFireball fireball = new SmallFireball(owner.level(), owner, aim.x, aim.y, aim.z);
         fireball.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
         return fireball;
     }
@@ -182,12 +200,21 @@ public final class ProjectileReplacement {
         ListTag explosions = fireworks.getList("Explosions", 10);
         while (explosions.size() < 3) {
             CompoundTag explosion = new CompoundTag();
-            explosion.putByte("Type", (byte)1);
             explosion.putIntArray("Colors", new int[]{0xF54291, 0xFFF176, 0x55B7B0});
             explosion.putIntArray("FadeColors", new int[]{0xFFFFFF});
             explosion.putBoolean("Trail", true);
             explosion.putBoolean("Flicker", true);
             explosions.add(explosion);
+        }
+        int counter = owner.getPersistentData().getInt(FIREWORK_COUNTER_TAG);
+        owner.getPersistentData().putInt(FIREWORK_COUNTER_TAG, counter + 1);
+        FireworkRocketItem.Shape shape = switch (counter % 3) {
+            case 1 -> FireworkRocketItem.Shape.STAR;
+            case 2 -> FireworkRocketItem.Shape.BURST;
+            default -> FireworkRocketItem.Shape.LARGE_BALL;
+        };
+        for (int i = 0; i < explosions.size(); i++) {
+            shape.save(explosions.getCompound(i));
         }
         fireworks.putByte("Flight", (byte)1);
         fireworks.put("Explosions", explosions);
@@ -197,6 +224,16 @@ public final class ProjectileReplacement {
         );
         rocket.setDeltaMovement(direction.normalize().scale(Math.max(1.0D, speed)));
         return rocket;
+    }
+
+    private static ThrownTrident createTrident(ItemStack source, SnowGolem owner) {
+        ItemStack trident = source.copy();
+        trident.setCount(1);
+        Map<Enchantment, Integer> enchantments = new HashMap<>(EnchantmentHelper.getEnchantments(trident));
+        enchantments.remove(Enchantments.LOYALTY);
+        enchantments.remove(Enchantments.RIPTIDE);
+        EnchantmentHelper.setEnchantments(enchantments, trident);
+        return new ThrownTrident(owner.level(), owner, trident);
     }
 
     private static Entity createWitherSkull(Snowball snowball, SnowGolem owner, Vec3 fallbackDirection) {
@@ -287,24 +324,26 @@ public final class ProjectileReplacement {
         return entity;
     }
 
-    private static void sonicBoom(Snowball snowball, SnowGolem owner, Vec3 direction) {
+    private static void sonicBoom(SnowGolem owner) {
         if (!(owner.level() instanceof ServerLevel serverLevel)) {
             return;
         }
-        Vec3 start = snowball.position();
-        Vec3 end = start.add(direction.normalize().scale(15.0D));
-        AABB box = new AABB(start, end).inflate(1.5D);
-        List<LivingEntity> targets = serverLevel.getEntitiesOfClass(LivingEntity.class, box, entity -> entity != owner && entity.isAlive());
-        for (LivingEntity target : targets) {
-            Vec3 toTarget = target.position().add(0.0D, target.getBbHeight() * 0.5D, 0.0D).subtract(start);
-            if (toTarget.normalize().dot(direction.normalize()) > 0.92D) {
-                target.hurt(owner.damageSources().sonicBoom(owner), 10.0F);
-            }
+        LivingEntity target = owner.getTarget();
+        if (target == null) {
+            return;
         }
-        for (int i = 0; i < 16; i++) {
-            Vec3 point = start.lerp(end, i / 15.0D);
+        Vec3 start = owner.position().add(0.0D, 1.6D, 0.0D);
+        Vec3 toTarget = target.getEyePosition().subtract(start);
+        Vec3 normalized = toTarget.normalize();
+        for (int i = 1; i < Mth.floor(toTarget.length()) + 7; i++) {
+            Vec3 point = start.add(normalized.scale(i));
             serverLevel.sendParticles(ParticleTypes.SONIC_BOOM, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
+        owner.playSound(SoundEvents.WARDEN_SONIC_BOOM, 3.0F, 1.0F);
+        target.hurt(serverLevel.damageSources().sonicBoom(owner), 10.0F);
+        double vertical = 0.5D * (1.0D - target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+        double horizontal = 2.5D * (1.0D - target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+        target.push(normalized.x * horizontal, normalized.y * vertical, normalized.z * horizontal);
     }
 
     private static Vec3 directionToTarget(Snowball snowball, LivingEntity target, Vec3 fallback) {
@@ -323,18 +362,29 @@ public final class ProjectileReplacement {
     }
 
     private static void playProjectileSound(SnowGolem owner, SnowmanUpgradeType type) {
+        if (type == SnowmanUpgradeType.SHULKER_SHELL) {
+            owner.level().playSound(
+                    null,
+                    owner.blockPosition(),
+                    SoundEvents.SHULKER_SHOOT,
+                    SoundSource.HOSTILE,
+                    2.0F,
+                    (owner.getRandom().nextFloat() - owner.getRandom().nextFloat()) * 0.2F + 1.0F
+            );
+            return;
+        }
         SoundEvent sound = switch (type) {
             case ARROW, SPECTRAL_ARROW, TIPPED_ARROW -> SoundEvents.SKELETON_SHOOT;
             case FIRE_CHARGE -> SoundEvents.BLAZE_SHOOT;
             case DRAGON_BREATH -> SoundEvents.ENDER_DRAGON_SHOOT;
             case TNT -> SoundEvents.TNT_PRIMED;
             case WITHER_SKULL -> SoundEvents.WITHER_SHOOT;
-            case SCULK_SHRIEKER -> SoundEvents.WARDEN_SONIC_BOOM;
+            case SCULK_SHRIEKER -> null;
             case TOTEM -> SoundEvents.EVOKER_CAST_SPELL;
             case POTION, SPLASH_POTION -> SoundEvents.WITCH_THROW;
             case EGG -> SoundEvents.EGG_THROW;
             case TRIDENT -> SoundEvents.TRIDENT_THROW;
-            case SHULKER_SHELL -> SoundEvents.SHULKER_SHOOT;
+            case SHULKER_SHELL -> null;
             case FIREWORK_ROCKET -> null;
         };
         if (sound != null) {
