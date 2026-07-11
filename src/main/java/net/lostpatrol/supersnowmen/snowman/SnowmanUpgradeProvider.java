@@ -9,7 +9,6 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.capabilities.ICapabilitySerializable;
 import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,7 +16,7 @@ public class SnowmanUpgradeProvider implements ICapabilitySerializable<CompoundT
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(SuperSnowmen.MOD_ID, "upgrades");
 
     private final SnowmanUpgradeInventory inventory;
-    private final LazyOptional<IItemHandler> optional;
+    private final LazyOptional<SnowmanUpgradeInventory> optional;
 
     public SnowmanUpgradeProvider(SnowGolem snowman) {
         this.inventory = new SnowmanUpgradeInventory(snowman);
@@ -28,9 +27,16 @@ public class SnowmanUpgradeProvider implements ICapabilitySerializable<CompoundT
         return inventory;
     }
 
+    public void invalidate() {
+        optional.invalidate();
+    }
+
     @Override
     public @NotNull <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {
-        return cap == ForgeCapabilities.ITEM_HANDLER ? optional.cast() : LazyOptional.empty();
+        if (cap == SnowmanUpgradeCapabilities.UPGRADES || cap == ForgeCapabilities.ITEM_HANDLER) {
+            return optional.cast();
+        }
+        return LazyOptional.empty();
     }
 
     @Override

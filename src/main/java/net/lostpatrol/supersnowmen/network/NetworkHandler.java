@@ -4,8 +4,11 @@ import net.lostpatrol.supersnowmen.SuperSnowmen;
 import net.lostpatrol.supersnowmen.network.handler.HandlerOpenSnowmanUpgrade;
 import net.lostpatrol.supersnowmen.network.packet.PacketOpenSnowmanUpgrade;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
+
+import java.util.Optional;
 
 public final class NetworkHandler {
     private static final String PROTOCOL_VERSION = "1";
@@ -31,7 +34,8 @@ public final class NetworkHandler {
                 PacketOpenSnowmanUpgrade.class,
                 PacketOpenSnowmanUpgrade::encode,
                 PacketOpenSnowmanUpgrade::new,
-                HandlerOpenSnowmanUpgrade::handle
+                HandlerOpenSnowmanUpgrade::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER)
         );
     }
 

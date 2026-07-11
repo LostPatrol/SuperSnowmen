@@ -14,7 +14,7 @@ public final class ClientEvents {
     }
 
     @SubscribeEvent
-    static void onClientSetup(FMLClientSetupEvent event) {
+    public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> MenuScreens.register(SuperSnowmenMenus.SNOWMAN_UPGRADE.get(), SnowmanUpgradeScreen::new));
     }
 }

@@ -32,7 +32,7 @@ public final class SuperSnowmenConfig {
     }
 
     @SubscribeEvent
-    static void onConfigLoad(ModConfigEvent event) {
+    public static void onConfigLoad(ModConfigEvent event) {
         enableUpgrades = ENABLE_UPGRADES.get();
         consumeProjectileItems = CONSUME_PROJECTILE_ITEMS.get();
         consumePotionProjectiles = CONSUME_POTION_PROJECTILES.get();

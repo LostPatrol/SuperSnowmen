@@ -1,6 +1,7 @@
 package net.lostpatrol.supersnowmen.snowman;
 
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import net.lostpatrol.supersnowmen.SuperSnowmen;
 import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.menu.SnowmanUpgradeMenu;
 import net.lostpatrol.supersnowmen.network.NetworkHandler;
@@ -23,14 +24,18 @@ import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.network.NetworkHooks;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public final class SnowmanEvents {
     private SnowmanEvents() {
     }
 
+    @SubscribeEvent
     public static void attachCapabilities(AttachCapabilitiesEvent<Entity> event) {
         if (event.getObject() instanceof SnowGolem snowman) {
-            event.addCapability(SnowmanUpgradeProvider.ID, new SnowmanUpgradeProvider(snowman));
+            SnowmanUpgradeProvider provider = new SnowmanUpgradeProvider(snowman);
+            event.addCapability(SnowmanUpgradeProvider.ID, provider);
+            event.addListener(provider::invalidate);
         }
     }
 
@@ -60,10 +65,17 @@ public final class SnowmanEvents {
 
     public static void handleSnowmanInteraction(ServerPlayer player, SnowGolem snowman, boolean withdraw) {
         if (!SuperSnowmenConfig.enableUpgrades || !snowman.isAlive() || player.distanceToSqr(snowman) > 64.0D) {
+            SuperSnowmen.LOGGER.error("Snow golem interaction rejected: enabled={}, alive={}, distanceSquared={}", SuperSnowmenConfig.enableUpgrades, snowman.isAlive(), player.distanceToSqr(snowman));
             return;
         }
 
-        SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
+        var upgrades = SnowmanUpgradeAccess.get(snowman);
+        if (upgrades.isEmpty()) {
+            SuperSnowmen.LOGGER.error("Snow golem {} has no upgrade capability; cannot open upgrade menu", snowman.getId());
+            return;
+        }
+
+        upgrades.ifPresent(inventory -> {
             if (withdraw) {
                 withdrawAll(player, inventory);
                 SnowmanUpgradeEffects.apply(snowman, inventory);
