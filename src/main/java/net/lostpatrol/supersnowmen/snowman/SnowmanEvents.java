@@ -14,16 +14,19 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.RangedAttackGoal;
 import net.minecraft.world.entity.animal.SnowGolem;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
-import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -107,14 +110,14 @@ public final class SnowmanEvents {
         ProjectileReplacement.replaceSnowball(event);
     }
 
-    public static void onLivingDamage(LivingDamageEvent event) {
+    public static void onLivingAttack(LivingAttackEvent event) {
         if (!(event.getEntity() instanceof SnowGolem snowman)) {
             return;
         }
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
             SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(inventory);
             boolean dragonBreathImmune = inventory.hasProjectileUpgrade(SnowmanUpgradeType.DRAGON_BREATH)
-                    && event.getSource().is(DamageTypes.DRAGON_BREATH);
+                    && isDragonBreathDamage(event);
             boolean explosionImmune = inventory.hasProjectileUpgrade(SnowmanUpgradeType.TNT)
                     && (event.getSource().is(DamageTypes.EXPLOSION) || event.getSource().is(DamageTypes.PLAYER_EXPLOSION));
             if ((tier.warmImmune && event.getSource().is(DamageTypes.ON_FIRE))
@@ -128,6 +131,32 @@ public final class SnowmanEvents {
                 event.setCanceled(true);
             }
         });
+    }
+
+    public static void onLivingDrops(LivingDropsEvent event) {
+        if (!(event.getEntity() instanceof SnowGolem snowman) || snowman.level().isClientSide()) {
+            return;
+        }
+        SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
+            for (int slot = 0; slot < inventory.getSlots(); slot++) {
+                ItemStack stack = inventory.getStackInSlot(slot).copy();
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                inventory.setStackInSlot(slot, ItemStack.EMPTY);
+                ItemEntity drop = new ItemEntity(snowman.level(), snowman.getX(), snowman.getY(), snowman.getZ(), stack);
+                drop.setDefaultPickUpDelay();
+                event.getDrops().add(drop);
+            }
+        });
+    }
+
+    private static boolean isDragonBreathDamage(LivingAttackEvent event) {
+        if (event.getSource().is(DamageTypes.DRAGON_BREATH)) {
+            return true;
+        }
+        return event.getSource().getDirectEntity() instanceof AreaEffectCloud cloud
+                && cloud.getParticle() == ParticleTypes.DRAGON_BREATH;
     }
 
     public static void onExplosionDetonate(ExplosionEvent.Detonate event) {

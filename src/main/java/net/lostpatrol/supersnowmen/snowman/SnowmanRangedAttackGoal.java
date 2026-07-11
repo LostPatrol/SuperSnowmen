@@ -1,9 +1,11 @@
 package net.lostpatrol.supersnowmen.snowman;
 
+import net.lostpatrol.supersnowmen.projectile.ProjectileReplacement;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import org.jetbrains.annotations.Nullable;
 
@@ -95,7 +97,11 @@ public class SnowmanRangedAttackGoal extends Goal {
 
             float distanceFactor = (float)Math.sqrt(distanceSqr) / attackRadius;
             float clampedDistanceFactor = Mth.clamp(distanceFactor, 0.1F, 1.0F);
-            rangedAttackMob.performRangedAttack(target, clampedDistanceFactor);
+            if (mob instanceof SnowGolem snowman) {
+                ProjectileReplacement.performRangedAttack(snowman, target);
+            } else {
+                rangedAttackMob.performRangedAttack(target, clampedDistanceFactor);
+            }
             attackTime = Mth.floor(distanceFactor * (attackIntervalMax() - attackIntervalMin()) + attackIntervalMin());
         } else if (attackTime < 0) {
             attackTime = Mth.floor(Mth.lerp(Math.sqrt(distanceSqr) / attackRadius, (double)attackIntervalMin(), (double)attackIntervalMax()));

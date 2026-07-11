@@ -4,11 +4,16 @@ import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeAccess;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeInventory;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeType;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.SnowGolem;
@@ -30,8 +35,10 @@ import net.minecraft.world.entity.projectile.WitherSkull;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 
 import java.util.ArrayList;
@@ -45,30 +52,53 @@ public final class ProjectileReplacement {
     }
 
     public static void replaceSnowball(EntityJoinLevelEvent event) {
-        if (!SuperSnowmenConfig.enableUpgrades || event.getLevel().isClientSide() || !(event.getEntity() instanceof Snowball snowball)) {
+        if (event.getLevel().isClientSide() || !(event.getEntity() instanceof Snowball snowball)) {
             return;
         }
         Entity owner = snowball.getOwner();
         if (!(owner instanceof SnowGolem snowman)) {
             return;
         }
+        if (!SuperSnowmenConfig.enableUpgrades) {
+            playSnowballSound(snowman);
+            return;
+        }
 
-        SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
-            SelectedUpgrade selected = select(inventory, snowman);
-            if (selected == null) {
-                return;
-            }
-            Entity replacement = createReplacement(selected, snowball, snowman);
-            if (replacement == null && selected.type != SnowmanUpgradeType.SCULK_SHRIEKER) {
-                return;
-            }
-            event.setCanceled(true);
-            snowball.discard();
-            if (replacement != null) {
-                event.getLevel().addFreshEntity(replacement);
-            }
-            consumeIfNeeded(inventory, selected);
-        });
+        SnowmanUpgradeInventory inventory = SnowmanUpgradeAccess.get(snowman).orElse(null);
+        if (inventory == null) {
+            playSnowballSound(snowman);
+            return;
+        }
+        SelectedUpgrade selected = select(inventory, snowman);
+        if (selected == null) {
+            playSnowballSound(snowman);
+            return;
+        }
+        Entity replacement = createReplacement(selected, snowball, snowman);
+        boolean directEffect = selected.type == SnowmanUpgradeType.SCULK_SHRIEKER
+                || selected.type == SnowmanUpgradeType.TOTEM;
+        if (replacement == null && !directEffect) {
+            playSnowballSound(snowman);
+            return;
+        }
+        event.setCanceled(true);
+        snowball.discard();
+        if (replacement != null) {
+            event.getLevel().addFreshEntity(replacement);
+        }
+        playProjectileSound(snowman, selected.type);
+        consumeIfNeeded(inventory, selected);
+    }
+
+    public static void performRangedAttack(SnowGolem snowman, LivingEntity target) {
+        Snowball snowball = new Snowball(snowman.level(), snowman);
+        double targetY = target.getEyeY() - 1.1D;
+        double x = target.getX() - snowman.getX();
+        double y = targetY - snowball.getY();
+        double z = target.getZ() - snowman.getZ();
+        double arc = Math.sqrt(x * x + z * z) * 0.2D;
+        snowball.shoot(x, y + arc, z, 1.6F, 12.0F);
+        snowman.level().addFreshEntity(snowball);
     }
 
     private static SelectedUpgrade select(SnowmanUpgradeInventory inventory, SnowGolem snowman) {
@@ -91,24 +121,28 @@ public final class ProjectileReplacement {
     private static Entity createReplacement(SelectedUpgrade selected, Snowball snowball, SnowGolem owner) {
         Vec3 velocity = snowball.getDeltaMovement();
         Vec3 direction = velocity.lengthSqr() > 0.0001D ? velocity.normalize() : owner.getLookAngle();
+        Vec3 directDirection = directionToTarget(snowball, owner.getTarget(), direction);
         return switch (selected.type) {
             case ARROW -> shootArrow(new Arrow(owner.level(), owner), snowball, velocity);
             case SPECTRAL_ARROW -> shootArrow(new SpectralArrow(owner.level(), owner), snowball, velocity);
-            case FIRE_CHARGE -> copyMotion(new SmallFireball(owner.level(), owner, direction.x, direction.y, direction.z), snowball, velocity);
-            case FIREWORK_ROCKET -> copyMotion(new FireworkRocketEntity(owner.level(), selected.stack.copy(), owner, snowball.getX(), snowball.getY(), snowball.getZ(), true), snowball, velocity);
-            case DRAGON_BREATH -> createDragonFireball(snowball, owner, direction, velocity);
+            case FIRE_CHARGE -> createSmallFireball(snowball, owner, directDirection);
+            case FIREWORK_ROCKET -> createFireworkRocket(selected.stack, snowball, owner, directDirection, velocity.length());
+            case DRAGON_BREATH -> createDragonFireball(snowball, owner, directDirection);
             case TNT -> createTnt(snowball, owner, velocity);
-            case WITHER_SKULL -> createWitherSkull(snowball, owner, direction);
+            case WITHER_SKULL -> createWitherSkull(snowball, owner, directDirection);
             case SCULK_SHRIEKER -> {
-                sonicBoom(snowball, owner, direction);
+                sonicBoom(snowball, owner, directDirection);
                 yield null;
             }
-            case TOTEM -> createFangs(snowball, owner, direction);
+            case TOTEM -> {
+                createFangLine(owner, directDirection);
+                yield null;
+            }
             case TIPPED_ARROW -> createTippedArrow(selected.stack, snowball, owner, velocity);
             case POTION, SPLASH_POTION -> createPotion(selected.stack, snowball, owner, velocity);
             case EGG -> copyMotion(new ThrownEgg(owner.level(), owner), snowball, velocity);
             case TRIDENT -> shootArrow(new ThrownTrident(owner.level(), owner, new ItemStack(Items.TRIDENT)), snowball, velocity);
-            case SHULKER_SHELL -> createShulkerBullet(snowball, owner, velocity);
+            case SHULKER_SHELL -> createShulkerBullet(owner);
         };
     }
 
@@ -129,32 +163,50 @@ public final class ProjectileReplacement {
         return tnt;
     }
 
-    private static Entity createDragonFireball(Snowball snowball, SnowGolem owner, Vec3 direction, Vec3 velocity) {
+    private static Entity createSmallFireball(Snowball snowball, SnowGolem owner, Vec3 direction) {
+        SmallFireball fireball = new SmallFireball(owner.level(), owner, direction.x, direction.y, direction.z);
+        fireball.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
+        return fireball;
+    }
+
+    private static Entity createDragonFireball(Snowball snowball, SnowGolem owner, Vec3 direction) {
         DragonFireball fireball = new DragonFireball(owner.level(), owner, direction.x, direction.y, direction.z);
-        return copyMotion(fireball, snowball, velocity);
+        fireball.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
+        return fireball;
+    }
+
+    private static Entity createFireworkRocket(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 direction, double speed) {
+        ItemStack rocketItem = source.copy();
+        rocketItem.setCount(1);
+        CompoundTag fireworks = rocketItem.getOrCreateTagElement("Fireworks");
+        ListTag explosions = fireworks.getList("Explosions", 10);
+        while (explosions.size() < 3) {
+            CompoundTag explosion = new CompoundTag();
+            explosion.putByte("Type", (byte)1);
+            explosion.putIntArray("Colors", new int[]{0xF54291, 0xFFF176, 0x55B7B0});
+            explosion.putIntArray("FadeColors", new int[]{0xFFFFFF});
+            explosion.putBoolean("Trail", true);
+            explosion.putBoolean("Flicker", true);
+            explosions.add(explosion);
+        }
+        fireworks.putByte("Flight", (byte)1);
+        fireworks.put("Explosions", explosions);
+
+        FireworkRocketEntity rocket = new FireworkRocketEntity(
+                owner.level(), rocketItem, owner, snowball.getX(), snowball.getY(), snowball.getZ(), true
+        );
+        rocket.setDeltaMovement(direction.normalize().scale(Math.max(1.0D, speed)));
+        return rocket;
     }
 
     private static Entity createWitherSkull(Snowball snowball, SnowGolem owner, Vec3 fallbackDirection) {
-        LivingEntity target = owner.getTarget();
-        Vec3 aim = target == null
-                ? fallbackDirection
-                : new Vec3(
-                target.getX() - snowball.getX(),
-                target.getY() + target.getEyeHeight() * 0.5D - snowball.getY(),
-                target.getZ() - snowball.getZ()
-        );
-        WitherSkull skull = new WitherSkull(owner.level(), owner, aim.x, aim.y, aim.z);
+        WitherSkull skull = new WitherSkull(owner.level(), owner, fallbackDirection.x, fallbackDirection.y, fallbackDirection.z);
         skull.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
         int counter = owner.getPersistentData().getInt(WITHER_COUNTER_TAG) + 1;
         owner.getPersistentData().putInt(WITHER_COUNTER_TAG, counter);
         skull.setDangerous(counter % 4 == 0);
         skull.getPersistentData().putBoolean(NO_BLOCK_DAMAGE_TAG, true);
         return skull;
-    }
-
-    private static Entity createFangs(Snowball snowball, SnowGolem owner, Vec3 direction) {
-        Vec3 pos = snowball.position().add(direction.normalize().scale(1.5D));
-        return new EvokerFangs(owner.level(), pos.x, pos.y, pos.z, owner.getYRot(), 0, owner);
     }
 
     private static Entity createTippedArrow(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 velocity) {
@@ -172,22 +224,58 @@ public final class ProjectileReplacement {
         return copyMotion(potion, snowball, velocity);
     }
 
-    private static Entity createShulkerBullet(Snowball snowball, SnowGolem owner, Vec3 velocity) {
+    private static Entity createShulkerBullet(SnowGolem owner) {
         LivingEntity target = owner.getTarget();
         if (target != null) {
-            owner.level().playSound(
-                    null,
-                    owner.getX(),
-                    owner.getY(),
-                    owner.getZ(),
-                    SoundEvents.SHULKER_SHOOT,
-                    SoundSource.HOSTILE,
-                    2.0F,
-                    (owner.getRandom().nextFloat() - owner.getRandom().nextFloat()) * 0.2F + 1.0F
-            );
             return new ShulkerBullet(owner.level(), owner, target, Direction.Axis.Y);
         }
         return null;
+    }
+
+    private static void createFangLine(SnowGolem owner, Vec3 direction) {
+        LivingEntity target = owner.getTarget();
+        double minY = target == null ? owner.getY() : Math.min(target.getY(), owner.getY());
+        double maxY = target == null ? owner.getY() + 1.0D : Math.max(target.getY(), owner.getY()) + 1.0D;
+        float angle = (float)Mth.atan2(direction.z, direction.x);
+        for (int index = 0; index < 16; index++) {
+            double distance = 1.25D * (index + 1);
+            createFang(
+                    owner,
+                    owner.getX() + Mth.cos(angle) * distance,
+                    owner.getZ() + Mth.sin(angle) * distance,
+                    minY,
+                    maxY,
+                    angle,
+                    index
+            );
+        }
+    }
+
+    private static void createFang(SnowGolem owner, double x, double z, double minY, double maxY, float angle, int delay) {
+        BlockPos pos = BlockPos.containing(x, maxY, z);
+        boolean foundGround = false;
+        double collisionHeight = 0.0D;
+        do {
+            BlockPos below = pos.below();
+            BlockState ground = owner.level().getBlockState(below);
+            if (ground.isFaceSturdy(owner.level(), below, Direction.UP)) {
+                if (!owner.level().isEmptyBlock(pos)) {
+                    VoxelShape collision = owner.level().getBlockState(pos).getCollisionShape(owner.level(), pos);
+                    if (!collision.isEmpty()) {
+                        collisionHeight = collision.max(Direction.Axis.Y);
+                    }
+                }
+                foundGround = true;
+                break;
+            }
+            pos = pos.below();
+        } while (pos.getY() >= Mth.floor(minY) - 1);
+
+        if (foundGround) {
+            owner.level().addFreshEntity(new EvokerFangs(
+                    owner.level(), x, pos.getY() + collisionHeight, z, angle, delay, owner
+            ));
+        }
     }
 
     private static Entity copyMotion(Entity entity, Snowball snowball, Vec3 velocity) {
@@ -213,10 +301,44 @@ public final class ProjectileReplacement {
                 target.hurt(owner.damageSources().sonicBoom(owner), 10.0F);
             }
         }
-        serverLevel.playSound(null, owner.blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 1.0F, 1.0F);
         for (int i = 0; i < 16; i++) {
             Vec3 point = start.lerp(end, i / 15.0D);
             serverLevel.sendParticles(ParticleTypes.SONIC_BOOM, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    private static Vec3 directionToTarget(Snowball snowball, LivingEntity target, Vec3 fallback) {
+        if (target == null) {
+            return fallback.normalize();
+        }
+        return new Vec3(
+                target.getX() - snowball.getX(),
+                target.getY() + target.getEyeHeight() * 0.5D - snowball.getY(),
+                target.getZ() - snowball.getZ()
+        ).normalize();
+    }
+
+    private static void playSnowballSound(SnowGolem owner) {
+        owner.playSound(SoundEvents.SNOW_GOLEM_SHOOT, 1.0F, 0.4F / (owner.getRandom().nextFloat() * 0.4F + 0.8F));
+    }
+
+    private static void playProjectileSound(SnowGolem owner, SnowmanUpgradeType type) {
+        SoundEvent sound = switch (type) {
+            case ARROW, SPECTRAL_ARROW, TIPPED_ARROW -> SoundEvents.SKELETON_SHOOT;
+            case FIRE_CHARGE -> SoundEvents.BLAZE_SHOOT;
+            case DRAGON_BREATH -> SoundEvents.ENDER_DRAGON_SHOOT;
+            case TNT -> SoundEvents.TNT_PRIMED;
+            case WITHER_SKULL -> SoundEvents.WITHER_SHOOT;
+            case SCULK_SHRIEKER -> SoundEvents.WARDEN_SONIC_BOOM;
+            case TOTEM -> SoundEvents.EVOKER_CAST_SPELL;
+            case POTION, SPLASH_POTION -> SoundEvents.WITCH_THROW;
+            case EGG -> SoundEvents.EGG_THROW;
+            case TRIDENT -> SoundEvents.TRIDENT_THROW;
+            case SHULKER_SHELL -> SoundEvents.SHULKER_SHOOT;
+            case FIREWORK_ROCKET -> null;
+        };
+        if (sound != null) {
+            owner.level().playSound(null, owner.blockPosition(), sound, SoundSource.HOSTILE, 1.0F, 1.0F);
         }
     }
 

@@ -26,7 +26,8 @@ public class SuperSnowmen {
         forgeBus.register(SnowmanEvents.class);
         forgeBus.addListener(SnowmanEvents::onEntityInteract);
         forgeBus.addListener(SnowmanEvents::onEntityJoinLevel);
-        forgeBus.addListener(SnowmanEvents::onLivingDamage);
+        forgeBus.addListener(SnowmanEvents::onLivingAttack);
+        forgeBus.addListener(SnowmanEvents::onLivingDrops);
         forgeBus.addListener(SnowmanEvents::onExplosionDetonate);
         forgeBus.addListener(SnowmanEvents::registerCommands);
     }
