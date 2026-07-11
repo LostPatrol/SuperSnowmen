@@ -1,0 +1,9 @@
+{
+  "container.super_snowmen.snowman_upgrade": "雪傀儡升级",
+  "gui.super_snowmen.base": "基础",
+  "gui.super_snowmen.plugins": "发射物插件",
+  "gui.super_snowmen.special": "特殊",
+  "commands.super_snowmen.enable": "Super Snowmen 升级启用: %s",
+  "commands.super_snowmen.consume_projectiles": "消耗发射物插件物品: %s",
+  "commands.super_snowmen.consume_potion_projectiles": "消耗药水类发射物物品: %s"
+}

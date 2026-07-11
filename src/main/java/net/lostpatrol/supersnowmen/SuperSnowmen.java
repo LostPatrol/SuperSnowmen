@@ -1,0 +1,24 @@
+package net.lostpatrol.supersnowmen;
+
+import com.mojang.logging.LogUtils;
+import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
+import net.lostpatrol.supersnowmen.menu.SuperSnowmenMenus;
+import net.lostpatrol.supersnowmen.snowman.SnowmanEvents;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import org.slf4j.Logger;
+
+@Mod(SuperSnowmen.MOD_ID)
+public class SuperSnowmen {
+    public static final String MOD_ID = "super_snowmen";
+    public static final Logger LOGGER = LogUtils.getLogger();
+
+    public SuperSnowmen(FMLJavaModLoadingContext context) {
+        var modBus = context.getModEventBus();
+        SuperSnowmenMenus.MENUS.register(modBus);
+        context.registerConfig(ModConfig.Type.SERVER, SuperSnowmenConfig.SPEC);
+        MinecraftForge.EVENT_BUS.register(SnowmanEvents.class);
+    }
+}

@@ -1,0 +1,9 @@
+{
+  "container.super_snowmen.snowman_upgrade": "Snow Golem Upgrades",
+  "gui.super_snowmen.base": "Base",
+  "gui.super_snowmen.plugins": "Projectile Plugins",
+  "gui.super_snowmen.special": "Special",
+  "commands.super_snowmen.enable": "Super Snowmen upgrades enabled: %s",
+  "commands.super_snowmen.consume_projectiles": "Consume projectile plugin items: %s",
+  "commands.super_snowmen.consume_potion_projectiles": "Consume potion projectile items: %s"
+}
