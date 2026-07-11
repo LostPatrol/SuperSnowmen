@@ -1,5 +1,6 @@
 package net.lostpatrol.supersnowmen.snowman;
 
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.SnowGolem;
@@ -7,9 +8,12 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.gameevent.GameEvent;
 
 public final class SnowmanUpgradeEffects {
     private static final double BASE_MAX_HEALTH = 4.0D;
+    private static final String EGG_TIMER_TAG = "SuperSnowmenEggTimer";
+    private static final String SET_BONUS_LEVEL_TAG = "SuperSnowmenSetBonusLevel";
 
     private SnowmanUpgradeEffects() {
     }
@@ -41,6 +45,63 @@ public final class SnowmanUpgradeEffects {
                 snowman.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 40, 0, false, true));
             }
         }
+        if (inventory.hasProjectileUpgrade(SnowmanUpgradeType.EGG)) {
+            refreshEffect(snowman, MobEffects.SLOW_FALLING, 40);
+            layEggLikeChicken(snowman);
+        } else {
+            snowman.getPersistentData().remove(EGG_TIMER_TAG);
+        }
+        maintainSetBonus(snowman, inventory);
+    }
+
+    private static void maintainSetBonus(SnowGolem snowman, SnowmanUpgradeInventory inventory) {
+        boolean allPlugins = inventory.areAllPluginSlotsFilled();
+        int level = allPlugins && inventory.areAllAttributeSlotsActive() ? 2 : allPlugins ? 1 : 0;
+        int previousLevel = snowman.getPersistentData().getInt(SET_BONUS_LEVEL_TAG);
+        if (level != previousLevel) {
+            if (previousLevel > 0) {
+                snowman.removeEffect(MobEffects.REGENERATION);
+                snowman.removeEffect(MobEffects.DAMAGE_RESISTANCE);
+            }
+            snowman.getPersistentData().putInt(SET_BONUS_LEVEL_TAG, level);
+        }
+        if (level > 0) {
+            refreshEffect(snowman, MobEffects.REGENERATION, 40, level - 1);
+            refreshEffect(snowman, MobEffects.DAMAGE_RESISTANCE, 40, level - 1);
+        } else {
+            snowman.getPersistentData().remove(SET_BONUS_LEVEL_TAG);
+        }
+    }
+
+    private static void refreshEffect(SnowGolem snowman, net.minecraft.world.effect.MobEffect effect, int duration) {
+        refreshEffect(snowman, effect, duration, 0);
+    }
+
+    private static void refreshEffect(SnowGolem snowman, net.minecraft.world.effect.MobEffect effect,
+                                      int duration, int amplifier) {
+        MobEffectInstance current = snowman.getEffect(effect);
+        if (current == null || current.getAmplifier() < amplifier
+                || (current.getAmplifier() == amplifier && current.getDuration() <= 20)) {
+            snowman.addEffect(new MobEffectInstance(effect, duration, amplifier, false, true));
+        }
+    }
+
+    private static void layEggLikeChicken(SnowGolem snowman) {
+        if (snowman.level().isClientSide()) {
+            return;
+        }
+        int timer = snowman.getPersistentData().contains(EGG_TIMER_TAG)
+                ? snowman.getPersistentData().getInt(EGG_TIMER_TAG)
+                : snowman.getRandom().nextInt(6000) + 6000;
+        timer--;
+        if (timer <= 0) {
+            snowman.playSound(SoundEvents.CHICKEN_EGG, 1.0F,
+                    (snowman.getRandom().nextFloat() - snowman.getRandom().nextFloat()) * 0.2F + 1.0F);
+            snowman.spawnAtLocation(Items.EGG);
+            snowman.gameEvent(GameEvent.ENTITY_PLACE);
+            timer = snowman.getRandom().nextInt(6000) + 6000;
+        }
+        snowman.getPersistentData().putInt(EGG_TIMER_TAG, timer);
     }
 
     public static ArmorTier armorTier(SnowmanUpgradeInventory inventory) {
@@ -61,13 +122,13 @@ public final class SnowmanUpgradeEffects {
 
         public final double armor;
         public final double toughness;
-        public final boolean warmImmune;
+        public final boolean climateImmune;
         public final boolean wetImmune;
 
-        ArmorTier(double armor, double toughness, boolean warmImmune, boolean wetImmune) {
+        ArmorTier(double armor, double toughness, boolean climateImmune, boolean wetImmune) {
             this.armor = armor;
             this.toughness = toughness;
-            this.warmImmune = warmImmune;
+            this.climateImmune = climateImmune;
             this.wetImmune = wetImmune;
         }
 

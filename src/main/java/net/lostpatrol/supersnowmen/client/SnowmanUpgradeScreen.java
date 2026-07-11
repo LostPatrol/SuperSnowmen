@@ -24,7 +24,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
     private static final int TEXT = 0xFFECEFF4;
     private static final int EMPTY_BAR = 0xFF4C566A;
     private static final int BAR_X = 17;
-    private static final int BAR_Y = 94;
+    private static final int BAR_Y = 104;
     private static final int BAR_WIDTH = 162;
     private static final int BAR_HEIGHT = 6;
 
@@ -76,6 +76,8 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.drawCenteredString(font, Component.literal("Super Snowman"), imageWidth / 2, 7, TEXT);
+        graphics.drawCenteredString(font, Component.translatable("gui.super_snowmen.composition"),
+                imageWidth / 2, 92, TEXT);
     }
 
     private void drawSlotFrames(GuiGraphics graphics) {
@@ -156,8 +158,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             case SnowmanUpgradeInventory.BASE_PUMPKIN_SLOT -> "gui.super_snowmen.hint.pumpkin";
             case SnowmanUpgradeInventory.BASE_SNOW_SLOT -> "gui.super_snowmen.hint.snow";
             case SnowmanUpgradeInventory.BASE_DIAMOND_SLOT -> "gui.super_snowmen.hint.diamond";
-            default -> SnowmanUpgradeInventory.isSpecialSlot(hoveredSlot.getSlotIndex())
-                    ? "gui.super_snowmen.hint.ice" : null;
+            default -> specialSlotTooltipKey();
         };
         if (key == null) {
             return false;
@@ -171,27 +172,58 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         return true;
     }
 
+    private String specialSlotTooltipKey() {
+        if (!SnowmanUpgradeInventory.isSpecialSlot(hoveredSlot.getSlotIndex())) {
+            return null;
+        }
+        ItemStack stack = hoveredSlot.getItem();
+        if (stack.is(net.minecraft.world.item.Items.PACKED_ICE)) {
+            return "gui.super_snowmen.hint.packed_ice";
+        }
+        if (stack.is(net.minecraft.world.item.Items.BLUE_ICE)) {
+            return "gui.super_snowmen.hint.blue_ice";
+        }
+        return "gui.super_snowmen.hint.ice";
+    }
+
     private void drawProjectileBar(GuiGraphics graphics) {
         int x = leftPos + BAR_X;
         int y = topPos + BAR_Y;
         Map<SnowmanUpgradeType, Integer> counts = new LinkedHashMap<>();
+        int installed = 0;
         for (int slot = SnowmanUpgradeInventory.PLUGIN_START; slot < SnowmanUpgradeInventory.PLUGIN_START + SnowmanUpgradeInventory.PLUGIN_COUNT; slot++) {
             ItemStack stack = menu.upgrades().getStackInSlot(slot);
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
             if (type != null) {
                 counts.merge(UpgradeDisplay.canonicalType(type), stack.getCount(), Integer::sum);
+                installed += stack.getCount();
             }
         }
 
         graphics.fill(x, y, x + BAR_WIDTH, y + BAR_HEIGHT, EMPTY_BAR);
+        List<CompositionEntry> entries = new ArrayList<>();
+        for (Map.Entry<SnowmanUpgradeType, Integer> entry : counts.entrySet()) {
+            entries.add(new CompositionEntry(
+                    UpgradeDisplay.projectileName(entry.getKey()),
+                    entry.getKey().color(),
+                    entry.getValue()
+            ));
+        }
+        if (installed < SnowmanUpgradeInventory.PLUGIN_COUNT) {
+            entries.add(new CompositionEntry(
+                    Component.translatable("gui.super_snowmen.projectile.snowball"),
+                    0xDCEEF7,
+                    SnowmanUpgradeInventory.PLUGIN_COUNT - installed
+            ));
+        }
         List<BarSegment> segments = new ArrayList<>();
         int usedSlots = 0;
-        for (Map.Entry<SnowmanUpgradeType, Integer> entry : counts.entrySet()) {
+        for (CompositionEntry entry : entries) {
             int start = Math.round(BAR_WIDTH * (usedSlots / (float)SnowmanUpgradeInventory.PLUGIN_COUNT));
-            usedSlots += entry.getValue();
+            usedSlots += entry.count();
             int end = Math.round(BAR_WIDTH * (usedSlots / (float)SnowmanUpgradeInventory.PLUGIN_COUNT));
-            graphics.fill(x + start, y, x + end, y + BAR_HEIGHT, 0xFF000000 | entry.getKey().color());
-            segments.add(new BarSegment(entry.getKey(), x + start, x + end));
+            graphics.fill(x + start, y, x + end, y + BAR_HEIGHT, 0xFF000000 | entry.color());
+            segments.add(new BarSegment(entry.name(), entry.count() * 5, x + start, x + end));
         }
         barSegments = List.copyOf(segments);
         graphics.fill(x, y, x + BAR_WIDTH, y + 1, 0xFF2E3440);
@@ -205,7 +237,8 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         }
         for (BarSegment segment : barSegments) {
             if (mouseX >= segment.startX() && mouseX < segment.endX()) {
-                graphics.renderTooltip(font, UpgradeDisplay.displayName(segment.type()), mouseX, mouseY);
+                graphics.renderTooltip(font, Component.translatable(
+                        "gui.super_snowmen.composition.tooltip", segment.name(), segment.percentage()), mouseX, mouseY);
                 return;
             }
         }
@@ -247,8 +280,8 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         if (tier.toughness > 0.0D) {
             effects.add(colored("gui.super_snowmen.effects.toughness", 0x74A7C8, (int)tier.toughness));
         }
-        if (tier.warmImmune) {
-            effects.add(colored("gui.super_snowmen.effects.burning_immunity", 0xFFB347));
+        if (tier.climateImmune) {
+            effects.add(colored("gui.super_snowmen.effects.climate_immunity", 0xFFB347));
         }
         if (tier.wetImmune) {
             effects.add(colored("gui.super_snowmen.effects.drowning_immunity", 0x4AA3FF));
@@ -270,6 +303,15 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         if (shulker) {
             effects.add(colored("gui.super_snowmen.effects.levitation_immunity", 0xD78BE6));
         }
+        if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.EGG)) {
+            effects.add(colored("gui.super_snowmen.effects.cluck", 0xF2D16B));
+            effects.add(colored("gui.super_snowmen.effects.slow_falling", 0xD7F0FF));
+        }
+        if (upgrades.areAllPluginSlotsFilled() && upgrades.areAllAttributeSlotsActive()) {
+            effects.add(colored("gui.super_snowmen.effects.super_snowman", 0x7AD7F0));
+        } else if (upgrades.areAllPluginSlotsFilled()) {
+            effects.add(colored("gui.super_snowmen.effects.triumphant", 0xD8B04C));
+        }
         return effects;
     }
 
@@ -277,6 +319,9 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         return Component.translatable(key, args).withStyle(style -> style.withColor(color));
     }
 
-    private record BarSegment(SnowmanUpgradeType type, int startX, int endX) {
+    private record CompositionEntry(Component name, int color, int count) {
+    }
+
+    private record BarSegment(Component name, int percentage, int startX, int endX) {
     }
 }

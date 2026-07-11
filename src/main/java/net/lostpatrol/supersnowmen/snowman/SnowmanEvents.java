@@ -136,7 +136,7 @@ public final class SnowmanEvents {
             boolean poweredArrowShield = witherEquipped
                     && snowman.getHealth() <= snowman.getMaxHealth() / 2.0F
                     && event.getSource().getDirectEntity() instanceof AbstractArrow;
-            if ((tier.warmImmune && event.getSource().is(DamageTypes.ON_FIRE))
+            if ((tier.climateImmune && event.getSource().is(DamageTypes.ON_FIRE) && !snowman.isOnFire())
                     || (tier.wetImmune && event.getSource().is(DamageTypes.DROWN))
                     || dragonBreathImmune
                     || explosionImmune

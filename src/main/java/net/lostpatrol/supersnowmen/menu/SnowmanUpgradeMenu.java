@@ -81,7 +81,7 @@ public class SnowmanUpgradeMenu extends AbstractContainerMenu {
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 5; col++) {
                 int slot = SnowmanUpgradeInventory.PLUGIN_START + row * 5 + col;
-                addSlot(new LimitedSlotItemHandler(upgrades, slot, 62 + col * 18, 18 + row * 18));
+                addSlot(new LimitedSlotItemHandler(upgrades, slot, 54 + col * 18, 18 + row * 18));
             }
         }
 

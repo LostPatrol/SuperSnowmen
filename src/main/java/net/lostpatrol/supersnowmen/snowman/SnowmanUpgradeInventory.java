@@ -90,4 +90,32 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
         }
         return false;
     }
+
+    public boolean areAllPluginSlotsFilled() {
+        for (int slot = PLUGIN_START; slot < PLUGIN_START + PLUGIN_COUNT; slot++) {
+            ItemStack stack = getStackInSlot(slot);
+            if (stack.isEmpty() || !isItemValid(slot, stack)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean areAllAttributeSlotsActive() {
+        ItemStack pumpkin = getStackInSlot(BASE_PUMPKIN_SLOT);
+        ItemStack snow = getStackInSlot(BASE_SNOW_SLOT);
+        ItemStack diamond = getStackInSlot(BASE_DIAMOND_SLOT);
+        if (pumpkin.isEmpty() || !isItemValid(BASE_PUMPKIN_SLOT, pumpkin)
+                || snow.isEmpty() || !isItemValid(BASE_SNOW_SLOT, snow)
+                || diamond.isEmpty() || !isItemValid(BASE_DIAMOND_SLOT, diamond)) {
+            return false;
+        }
+        for (int slot = SPECIAL_START; slot < SPECIAL_START + SPECIAL_COUNT; slot++) {
+            ItemStack stack = getStackInSlot(slot);
+            if (stack.getCount() < 64 || !isItemValid(slot, stack)) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

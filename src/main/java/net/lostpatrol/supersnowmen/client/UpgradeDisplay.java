@@ -40,4 +40,8 @@ public final class UpgradeDisplay {
         }
         return representativeStack(type).getHoverName();
     }
+
+    public static Component projectileName(SnowmanUpgradeType type) {
+        return Component.translatable("gui.super_snowmen.projectile." + canonicalType(type).name().toLowerCase(java.util.Locale.ROOT));
+    }
 }
