@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import net.lostpatrol.supersnowmen.SuperSnowmen;
 import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.menu.SnowmanUpgradeMenu;
+import net.lostpatrol.supersnowmen.network.SuperSnowmenNetwork;
 import net.lostpatrol.supersnowmen.projectile.ProjectileReplacement;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.particles.ParticleTypes;
@@ -31,12 +32,18 @@ import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.NetworkHooks;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+
 public final class SnowmanEvents {
+    private static final Map<SnowGolem, Boolean> POWERED_STATES = new WeakHashMap<>();
+
     private SnowmanEvents() {
     }
 
@@ -157,13 +164,18 @@ public final class SnowmanEvents {
 
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {
         if (!(event.getEntity() instanceof SnowGolem snowman)
-                || !(snowman.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)
-                || snowman.getHealth() > snowman.getMaxHealth() / 2.0F) {
+                || !(snowman.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
             return;
         }
-        boolean powered = SnowmanUpgradeAccess.get(snowman)
+        boolean powered = snowman.getHealth() <= snowman.getMaxHealth() / 2.0F
+                && SnowmanUpgradeAccess.get(snowman)
                 .map(inventory -> inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL))
                 .orElse(false);
+        boolean previous = POWERED_STATES.getOrDefault(snowman, false);
+        if (powered != previous) {
+            POWERED_STATES.put(snowman, powered);
+            SuperSnowmenNetwork.sendPoweredState(snowman, powered);
+        }
         if (!powered) {
             return;
         }
@@ -177,6 +189,16 @@ public final class SnowmanEvents {
                         0, 0.7D, 0.7D, 0.5D, 1.0D
                 );
             }
+        }
+    }
+
+    public static void onStartTracking(PlayerEvent.StartTracking event) {
+        if (event.getEntity() instanceof ServerPlayer player && event.getTarget() instanceof SnowGolem snowman) {
+            boolean powered = snowman.getHealth() <= snowman.getMaxHealth() / 2.0F
+                    && SnowmanUpgradeAccess.get(snowman)
+                    .map(inventory -> inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL))
+                    .orElse(false);
+            SuperSnowmenNetwork.sendPoweredState(player, snowman, powered);
         }
     }
 

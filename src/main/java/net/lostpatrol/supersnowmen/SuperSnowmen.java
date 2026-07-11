@@ -3,6 +3,7 @@ package net.lostpatrol.supersnowmen;
 import com.mojang.logging.LogUtils;
 import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.menu.SuperSnowmenMenus;
+import net.lostpatrol.supersnowmen.network.SuperSnowmenNetwork;
 import net.lostpatrol.supersnowmen.snowman.SnowmanEvents;
 import net.lostpatrol.supersnowmen.snowman.SnowmanModEvents;
 import net.minecraftforge.common.MinecraftForge;
@@ -19,6 +20,7 @@ public class SuperSnowmen {
     public SuperSnowmen(FMLJavaModLoadingContext context) {
         var modBus = context.getModEventBus();
         SuperSnowmenMenus.MENUS.register(modBus);
+        SuperSnowmenNetwork.register();
         modBus.addListener(SnowmanModEvents::registerCapabilities);
         context.registerConfig(ModConfig.Type.SERVER, SuperSnowmenConfig.SPEC);
 
@@ -29,6 +31,7 @@ public class SuperSnowmen {
         forgeBus.addListener(SnowmanEvents::onLivingAttack);
         forgeBus.addListener(SnowmanEvents::onLivingDrops);
         forgeBus.addListener(SnowmanEvents::onLivingTick);
+        forgeBus.addListener(SnowmanEvents::onStartTracking);
         forgeBus.addListener(SnowmanEvents::onMobEffectApplicable);
         forgeBus.addListener(SnowmanEvents::onExplosionDetonate);
         forgeBus.addListener(SnowmanEvents::registerCommands);

@@ -19,6 +19,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.entity.projectile.DragonFireball;
@@ -41,6 +42,7 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
@@ -53,7 +55,6 @@ import java.util.Map;
 public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
     private static final String WITHER_COUNTER_TAG = "SuperSnowmenWitherCounter";
-    private static final String FIREWORK_COUNTER_TAG = "SuperSnowmenFireworkCounter";
 
     private ProjectileReplacement() {
     }
@@ -199,22 +200,16 @@ public final class ProjectileReplacement {
         CompoundTag fireworks = rocketItem.getOrCreateTagElement("Fireworks");
         ListTag explosions = fireworks.getList("Explosions", 10);
         while (explosions.size() < 3) {
-            CompoundTag explosion = new CompoundTag();
-            explosion.putIntArray("Colors", new int[]{0xF54291, 0xFFF176, 0x55B7B0});
-            explosion.putIntArray("FadeColors", new int[]{0xFFFFFF});
-            explosion.putBoolean("Trail", true);
-            explosion.putBoolean("Flicker", true);
-            explosions.add(explosion);
+            explosions.add(new CompoundTag());
         }
-        int counter = owner.getPersistentData().getInt(FIREWORK_COUNTER_TAG);
-        owner.getPersistentData().putInt(FIREWORK_COUNTER_TAG, counter + 1);
-        FireworkRocketItem.Shape shape = switch (counter % 3) {
-            case 1 -> FireworkRocketItem.Shape.STAR;
-            case 2 -> FireworkRocketItem.Shape.BURST;
-            default -> FireworkRocketItem.Shape.LARGE_BALL;
-        };
+        FireworkProfile profile = FireworkProfile.random(owner);
         for (int i = 0; i < explosions.size(); i++) {
-            shape.save(explosions.getCompound(i));
+            CompoundTag explosion = explosions.getCompound(i);
+            profile.shape.save(explosion);
+            explosion.putIntArray("Colors", profile.colors);
+            explosion.putIntArray("FadeColors", profile.fadeColors);
+            explosion.putBoolean("Trail", profile.trail);
+            explosion.putBoolean("Flicker", profile.flicker);
         }
         fireworks.putByte("Flight", (byte)1);
         fireworks.put("Explosions", explosions);
@@ -344,6 +339,27 @@ public final class ProjectileReplacement {
         double vertical = 0.5D * (1.0D - target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
         double horizontal = 2.5D * (1.0D - target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
         target.push(normalized.x * horizontal, normalized.y * vertical, normalized.z * horizontal);
+
+        Vec3 end = target.getEyePosition();
+        AABB searchArea = new AABB(start, end).inflate(1.5D);
+        for (Monster monster : serverLevel.getEntitiesOfClass(Monster.class, searchArea,
+                candidate -> candidate != target && candidate.isAlive())) {
+            double hitRadius = 0.75D + monster.getBbWidth() * 0.5D;
+            Vec3 center = monster.position().add(0.0D, monster.getBbHeight() * 0.5D, 0.0D);
+            if (distanceToSegmentSqr(center, start, end) <= hitRadius * hitRadius) {
+                monster.hurt(serverLevel.damageSources().sonicBoom(owner), 10.0F);
+            }
+        }
+    }
+
+    private static double distanceToSegmentSqr(Vec3 point, Vec3 start, Vec3 end) {
+        Vec3 segment = end.subtract(start);
+        double lengthSqr = segment.lengthSqr();
+        if (lengthSqr < 1.0E-7D) {
+            return point.distanceToSqr(start);
+        }
+        double progress = Mth.clamp(point.subtract(start).dot(segment) / lengthSqr, 0.0D, 1.0D);
+        return point.distanceToSqr(start.add(segment.scale(progress)));
     }
 
     private static Vec3 directionToTarget(Snowball snowball, LivingEntity target, Vec3 fallback) {
@@ -402,5 +418,34 @@ public final class ProjectileReplacement {
     }
 
     private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack) {
+    }
+
+    private record FireworkProfile(FireworkRocketItem.Shape shape, int[] colors, int[] fadeColors,
+                                   boolean trail, boolean flicker) {
+        private static FireworkProfile random(SnowGolem owner) {
+            return switch (owner.getRandom().nextInt(3)) {
+                case 1 -> new FireworkProfile(
+                        FireworkRocketItem.Shape.STAR,
+                        new int[]{0x4FC3F7, 0x7E57C2, 0xFFFFFF},
+                        new int[]{0x80DEEA, 0xF8BBD0},
+                        false,
+                        true
+                );
+                case 2 -> new FireworkProfile(
+                        FireworkRocketItem.Shape.BURST,
+                        new int[]{0x66BB6A, 0xFFCA28, 0xEC407A},
+                        new int[]{0xAB47BC},
+                        true,
+                        true
+                );
+                default -> new FireworkProfile(
+                        FireworkRocketItem.Shape.LARGE_BALL,
+                        new int[]{0xEF5350, 0xFF8F00, 0xFFF176},
+                        new int[]{0xFFFFFF},
+                        true,
+                        false
+                );
+            };
+        }
     }
 }
