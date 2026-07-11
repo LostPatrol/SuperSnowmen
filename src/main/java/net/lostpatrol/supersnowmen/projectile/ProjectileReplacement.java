@@ -14,6 +14,7 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -34,9 +35,10 @@ import net.minecraft.world.entity.projectile.ThrownEgg;
 import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.entity.projectile.WitherSkull;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.FireworkRocketItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.FireworkRocketItem;
 import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -202,14 +204,8 @@ public final class ProjectileReplacement {
         while (explosions.size() < 3) {
             explosions.add(new CompoundTag());
         }
-        FireworkProfile profile = FireworkProfile.random(owner);
         for (int i = 0; i < explosions.size(); i++) {
-            CompoundTag explosion = explosions.getCompound(i);
-            profile.shape.save(explosion);
-            explosion.putIntArray("Colors", profile.colors);
-            explosion.putIntArray("FadeColors", profile.fadeColors);
-            explosion.putBoolean("Trail", profile.trail);
-            explosion.putBoolean("Flicker", profile.flicker);
+            randomizeFireworkExplosion(explosions.getCompound(i), owner.getRandom());
         }
         fireworks.putByte("Flight", (byte)1);
         fireworks.put("Explosions", explosions);
@@ -219,6 +215,34 @@ public final class ProjectileReplacement {
         );
         rocket.setDeltaMovement(direction.normalize().scale(Math.max(1.0D, speed)));
         return rocket;
+    }
+
+    private static void randomizeFireworkExplosion(CompoundTag explosion, RandomSource random) {
+        FireworkRocketItem.Shape shape = switch (random.nextInt(3)) {
+            case 1 -> FireworkRocketItem.Shape.STAR;
+            case 2 -> FireworkRocketItem.Shape.BURST;
+            default -> FireworkRocketItem.Shape.LARGE_BALL;
+        };
+        shape.save(explosion);
+        explosion.putIntArray("Colors", randomFireworkColors(random, 1 + random.nextInt(3)));
+        explosion.putIntArray("FadeColors", randomFireworkColors(random, random.nextInt(3)));
+        explosion.putBoolean("Trail", random.nextBoolean());
+        explosion.putBoolean("Flicker", random.nextBoolean());
+    }
+
+    private static int[] randomFireworkColors(RandomSource random, int count) {
+        DyeColor[] dyeColors = DyeColor.values();
+        boolean[] selected = new boolean[dyeColors.length];
+        int[] colors = new int[count];
+        for (int i = 0; i < count; i++) {
+            int index;
+            do {
+                index = random.nextInt(dyeColors.length);
+            } while (selected[index]);
+            selected[index] = true;
+            colors[i] = dyeColors[index].getFireworkColor();
+        }
+        return colors;
     }
 
     private static ThrownTrident createTrident(ItemStack source, SnowGolem owner) {
@@ -341,10 +365,10 @@ public final class ProjectileReplacement {
         target.push(normalized.x * horizontal, normalized.y * vertical, normalized.z * horizontal);
 
         Vec3 end = target.getEyePosition();
-        AABB searchArea = new AABB(start, end).inflate(1.5D);
+        AABB searchArea = new AABB(start, end).inflate(2.0D);
         for (Monster monster : serverLevel.getEntitiesOfClass(Monster.class, searchArea,
                 candidate -> candidate != target && candidate.isAlive())) {
-            double hitRadius = 0.75D + monster.getBbWidth() * 0.5D;
+            double hitRadius = 1.25D + monster.getBbWidth() * 0.5D;
             Vec3 center = monster.position().add(0.0D, monster.getBbHeight() * 0.5D, 0.0D);
             if (distanceToSegmentSqr(center, start, end) <= hitRadius * hitRadius) {
                 monster.hurt(serverLevel.damageSources().sonicBoom(owner), 10.0F);
@@ -420,32 +444,4 @@ public final class ProjectileReplacement {
     private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack) {
     }
 
-    private record FireworkProfile(FireworkRocketItem.Shape shape, int[] colors, int[] fadeColors,
-                                   boolean trail, boolean flicker) {
-        private static FireworkProfile random(SnowGolem owner) {
-            return switch (owner.getRandom().nextInt(3)) {
-                case 1 -> new FireworkProfile(
-                        FireworkRocketItem.Shape.STAR,
-                        new int[]{0x4FC3F7, 0x7E57C2, 0xFFFFFF},
-                        new int[]{0x80DEEA, 0xF8BBD0},
-                        false,
-                        true
-                );
-                case 2 -> new FireworkProfile(
-                        FireworkRocketItem.Shape.BURST,
-                        new int[]{0x66BB6A, 0xFFCA28, 0xEC407A},
-                        new int[]{0xAB47BC},
-                        true,
-                        true
-                );
-                default -> new FireworkProfile(
-                        FireworkRocketItem.Shape.LARGE_BALL,
-                        new int[]{0xEF5350, 0xFF8F00, 0xFFF176},
-                        new int[]{0xFFFFFF},
-                        true,
-                        false
-                );
-            };
-        }
-    }
 }
