@@ -287,7 +287,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
                     : "gui.super_snowmen.effects.regeneration_i", 0xCD5CAB));
             effects.add(colored(setBonusLevel == 2
                     ? "gui.super_snowmen.effects.resistance_ii"
-                    : "gui.super_snowmen.effects.resistance_i", 0x8A9BA8));
+                    : "gui.super_snowmen.effects.resistance_i", 0xCD5CAB));
         }
         int pumpkins = upgrades.getStackInSlot(SnowmanUpgradeInventory.BASE_PUMPKIN_SLOT).getCount();
         int snowBlocks = upgrades.getStackInSlot(SnowmanUpgradeInventory.BASE_SNOW_SLOT).getCount();
@@ -300,17 +300,17 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         }
         if (diamonds > 0) {
             effects.add(colored("gui.super_snowmen.effects.projectile_damage", 0x55DDE0, diamonds));
-            effects.add(colored("gui.super_snowmen.effects.protection", 0x7FC8E8, diamonds));
+            effects.add(colored("gui.super_snowmen.effects.protection", 0xFFFFFF, romanLevel(diamonds)));
         }
 
         SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(upgrades);
         boolean shulker = upgrades.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
         int armor = Math.min(30, (int)tier.armor + (shulker ? 20 : 0));
         if (armor > 0) {
-            effects.add(colored("gui.super_snowmen.effects.armor", 0xA9C7E8, armor));
+            effects.add(colored("gui.super_snowmen.effects.armor", 0xFFFFFF, armor));
         }
         if (tier.toughness > 0.0D) {
-            effects.add(colored("gui.super_snowmen.effects.toughness", 0x74A7C8, (int)tier.toughness));
+            effects.add(colored("gui.super_snowmen.effects.toughness", 0xFFFFFF, (int)tier.toughness));
         }
         if (tier.climateImmune) {
             effects.add(colored("gui.super_snowmen.effects.climate_immunity", 0xFFB347));
@@ -354,6 +354,15 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
 
     private Component colored(String key, int color, Object... args) {
         return Component.translatable(key, args).withStyle(style -> style.withColor(color));
+    }
+
+    private String romanLevel(int level) {
+        return switch (level) {
+            case 1 -> "I";
+            case 2 -> "II";
+            case 3 -> "III";
+            default -> "IV";
+        };
     }
 
     private record CompositionEntry(Component name, int color, int count) {

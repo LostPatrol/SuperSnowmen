@@ -34,7 +34,7 @@
   "gui.super_snowmen.effects.attack_speed": "攻击速度 +%s%%",
   "gui.super_snowmen.effects.max_health": "生命值上限 +%s",
   "gui.super_snowmen.effects.projectile_damage": "发射物伤害 +%s",
-  "gui.super_snowmen.effects.protection": "保护减伤 %s层",
+  "gui.super_snowmen.effects.protection": "保护 %s",
   "gui.super_snowmen.effects.armor": "护甲 +%s",
   "gui.super_snowmen.effects.toughness": "护甲韧性 +%s",
   "gui.super_snowmen.effects.climate_immunity": "气候免疫",
