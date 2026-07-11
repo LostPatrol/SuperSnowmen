@@ -341,7 +341,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         }
         if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.LIGHTNING_ROD)
                 && !upgrades.findPreferredTrident().isEmpty()) {
-            effects.add(colored("gui.super_snowmen.effects.extra_trident", 0xC98232));
+            effects.add(colored("gui.super_snowmen.effects.extra_trident", 0xF2D15C));
             if (upgrades.hasChannelingTrident()) {
                 effects.add(colored("gui.super_snowmen.effects.weatherproof_channeling", 0xF2D15C));
             }
