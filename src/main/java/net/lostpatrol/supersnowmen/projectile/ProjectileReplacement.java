@@ -149,8 +149,8 @@ public final class ProjectileReplacement {
         Vec3 direction = velocity.lengthSqr() > 0.0001D ? velocity.normalize() : owner.getLookAngle();
         Vec3 directDirection = directionToTarget(snowball, owner.getTarget(), direction);
         return switch (selected.type) {
-            case ARROW -> shootSelectedArrow(new Arrow(owner.level(), owner), snowball, velocity, selected.bow);
-            case SPECTRAL_ARROW -> shootSelectedArrow(new SpectralArrow(owner.level(), owner), snowball, velocity, selected.bow);
+            case ARROW -> shootSelectedArrow(new Arrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
+            case SPECTRAL_ARROW -> shootSelectedArrow(new SpectralArrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
             case FIRE_CHARGE -> createSmallFireball(snowball, owner, directDirection);
             case FIREWORK_ROCKET -> createFireworkRocket(selected.stack, snowball, owner, directDirection, velocity.length());
             case DRAGON_BREATH -> createDragonFireball(snowball, owner, directDirection);
@@ -170,7 +170,7 @@ public final class ProjectileReplacement {
             case TRIDENT -> shootArrow(createTrident(selected.stack, owner), snowball, velocity);
             case SHULKER_SHELL -> createShulkerBullet(owner);
             case LIGHTNING_ROD -> null;
-            case BOW -> shootBowArrow(new Arrow(owner.level(), owner), snowball, velocity, selected.bow);
+            case BOW -> shootBowArrow(new Arrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
         };
     }
 
@@ -180,8 +180,9 @@ public final class ProjectileReplacement {
                 || type == SnowmanUpgradeType.TIPPED_ARROW;
     }
 
-    private static AbstractArrow shootSelectedArrow(AbstractArrow arrow, Snowball snowball, Vec3 velocity, ItemStack bow) {
-        return bow.isEmpty() ? shootArrow(arrow, snowball, velocity) : shootBowArrow(arrow, snowball, velocity, bow);
+    private static AbstractArrow shootSelectedArrow(AbstractArrow arrow, Snowball snowball, SnowGolem owner,
+                                                     Vec3 velocity, ItemStack bow) {
+        return bow.isEmpty() ? shootArrow(arrow, snowball, velocity) : shootBowArrow(arrow, snowball, owner, velocity, bow);
     }
 
     private static AbstractArrow shootArrow(AbstractArrow arrow, Snowball snowball, Vec3 velocity) {
@@ -193,10 +194,19 @@ public final class ProjectileReplacement {
         return arrow;
     }
 
-    private static AbstractArrow shootBowArrow(AbstractArrow arrow, Snowball snowball, Vec3 velocity, ItemStack bow) {
+    private static AbstractArrow shootBowArrow(AbstractArrow arrow, Snowball snowball, SnowGolem owner,
+                                                Vec3 fallbackVelocity, ItemStack bow) {
         arrow.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
-        if (velocity.lengthSqr() > 0.0001D) {
-            arrow.shoot(velocity.x, velocity.y, velocity.z, 3.0F, 1.0F);
+        LivingEntity target = owner.getTarget();
+        if (target != null) {
+            double x = target.getX() - snowball.getX();
+            double y = target.getEyeY() - 1.1D - snowball.getY();
+            double z = target.getZ() - snowball.getZ();
+            double horizontalDistance = Math.sqrt(x * x + z * z);
+            double fullDrawArc = horizontalDistance * 0.2D * Mth.square(1.6D / 3.0D);
+            arrow.shoot(x, y + fullDrawArc, z, 3.0F, 0.0F);
+        } else if (fallbackVelocity.lengthSqr() > 0.0001D) {
+            arrow.shoot(fallbackVelocity.x, fallbackVelocity.y, fallbackVelocity.z, 3.0F, 0.0F);
         }
         arrow.setCritArrow(true);
         int power = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.POWER_ARROWS, bow);
@@ -357,7 +367,7 @@ public final class ProjectileReplacement {
     private static Entity createTippedArrow(ItemStack source, ItemStack bow, Snowball snowball, SnowGolem owner, Vec3 velocity) {
         Arrow arrow = new Arrow(owner.level(), owner);
         arrow.setEffectsFromItem(source);
-        return shootSelectedArrow(arrow, snowball, velocity, bow);
+        return shootSelectedArrow(arrow, snowball, owner, velocity, bow);
     }
 
     private static Entity createPotion(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 velocity) {
