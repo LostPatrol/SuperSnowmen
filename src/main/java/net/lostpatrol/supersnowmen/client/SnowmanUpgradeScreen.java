@@ -322,11 +322,6 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             addBowEnchantment(effects, bow, Enchantments.POWER_ARROWS, bowColor);
             addBowEnchantment(effects, bow, Enchantments.PUNCH_ARROWS, bowColor);
         }
-        if (!upgrades.findCrossbow().isEmpty()
-                && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)) {
-            effects.add(rainbow("gui.super_snowmen.effects.firework_party"));
-        }
-
         SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(upgrades);
         boolean shulker = upgrades.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
         int armor = Math.min(30, (int)tier.armor + (shulker ? 20 : 0));
@@ -335,6 +330,10 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         }
         if (tier.toughness > 0.0D) {
             effects.add(colored("gui.super_snowmen.effects.toughness", 0xFFFFFF, (int)tier.toughness));
+        }
+        if (!upgrades.findCrossbow().isEmpty()
+                && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)) {
+            effects.add(rainbow("gui.super_snowmen.effects.firework_party"));
         }
         if (tier.climateImmune) {
             effects.add(colored("gui.super_snowmen.effects.climate_immunity", 0xFFB347));
