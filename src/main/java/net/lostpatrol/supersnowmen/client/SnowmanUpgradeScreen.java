@@ -5,11 +5,13 @@ import net.lostpatrol.supersnowmen.menu.SnowmanUpgradeMenu;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeInventory;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeEffects;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeType;
+import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -379,11 +381,12 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
     }
 
     private Component rainbow(String key) {
-        int[] colors = {0xF94144, 0xF8961E, 0xF9C74F, 0x43AA8B, 0x4D96FF, 0xC77DFF};
         String text = Component.translatable(key).getString();
         MutableComponent result = Component.empty();
+        float animationPhase = (Util.getMillis() % 4000L) / 4000.0F;
         for (int index = 0; index < text.length(); index++) {
-            int color = colors[index % colors.length];
+            float characterPhase = index / (float)Math.max(1, text.length());
+            int color = Mth.hsvToRgb((animationPhase + characterPhase) % 1.0F, 0.8F, 1.0F);
             result.append(Component.literal(text.substring(index, index + 1))
                     .withStyle(style -> style.withColor(color)));
         }
