@@ -22,7 +22,8 @@ public final class SnowmanUpgradeEffects {
         }
 
         ArmorTier tier = ArmorTier.from(inventory);
-        setBaseValue(snowman.getAttribute(Attributes.ARMOR), tier.armor);
+        double shulkerArmor = inventory.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL) ? 20.0D : 0.0D;
+        setBaseValue(snowman.getAttribute(Attributes.ARMOR), tier.armor + shulkerArmor);
         setBaseValue(snowman.getAttribute(Attributes.ARMOR_TOUGHNESS), tier.toughness);
         if (inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL)) {
             snowman.removeEffect(MobEffects.WITHER);

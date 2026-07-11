@@ -3,9 +3,9 @@ package net.lostpatrol.supersnowmen.client;
 import net.lostpatrol.supersnowmen.menu.LimitedSlotItemHandler;
 import net.lostpatrol.supersnowmen.menu.SnowmanUpgradeMenu;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeInventory;
+import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeEffects;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeType;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -29,6 +29,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
     private static final int BAR_HEIGHT = 6;
 
     private List<BarSegment> barSegments = List.of();
+    private ColdButton effectsButton;
 
     public SnowmanUpgradeScreen(SnowmanUpgradeMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -52,12 +53,13 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
     @Override
     protected void init() {
         super.init();
-        Button guideButton = Button.builder(Component.literal("?"),
-                        button -> minecraft.setScreen(new UpgradeGuideScreen(this)))
-                .bounds(leftPos + 41, topPos + 12, 16, 16)
-                .build();
+        ColdButton guideButton = new ColdButton(leftPos + 160, topPos + 4, 14, 14,
+                Component.literal("?"), () -> minecraft.setScreen(new UpgradeGuideScreen(this)));
         guideButton.setTooltip(Tooltip.create(Component.translatable("gui.super_snowmen.guide.open")));
         addRenderableWidget(guideButton);
+        effectsButton = addRenderableWidget(new ColdButton(leftPos + 177, topPos + 4, 14, 14,
+                Component.literal("i"), () -> {
+                }));
     }
 
     @Override
@@ -68,13 +70,12 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             renderTooltip(graphics, mouseX, mouseY);
         }
         renderProjectileBarTooltip(graphics, mouseX, mouseY);
+        renderActiveEffectsTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, Component.translatable("gui.super_snowmen.base"), 14, 16, TEXT, false);
-        graphics.drawString(font, Component.translatable("gui.super_snowmen.plugins"), 61, 7, TEXT, false);
-        graphics.drawString(font, Component.translatable("gui.super_snowmen.special"), 151, 16, TEXT, false);
+        graphics.drawCenteredString(font, Component.literal("Super Snowman"), imageWidth / 2, 7, TEXT);
     }
 
     private void drawSlotFrames(GuiGraphics graphics) {
@@ -178,7 +179,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             ItemStack stack = menu.upgrades().getStackInSlot(slot);
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
             if (type != null) {
-                counts.merge(type, stack.getCount(), Integer::sum);
+                counts.merge(UpgradeDisplay.canonicalType(type), stack.getCount(), Integer::sum);
             }
         }
 
@@ -204,10 +205,76 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         }
         for (BarSegment segment : barSegments) {
             if (mouseX >= segment.startX() && mouseX < segment.endX()) {
-                graphics.renderTooltip(font, new ItemStack(segment.type().item()).getHoverName(), mouseX, mouseY);
+                graphics.renderTooltip(font, UpgradeDisplay.displayName(segment.type()), mouseX, mouseY);
                 return;
             }
         }
+    }
+
+    private void renderActiveEffectsTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (effectsButton == null || !effectsButton.isHovered()) {
+            return;
+        }
+        List<Component> effects = getActiveEffects();
+        if (effects.isEmpty()) {
+            effects = List.of(colored("gui.super_snowmen.effects.none", 0xAAB4C2));
+        }
+        graphics.renderTooltip(font, effects, Optional.empty(), mouseX, mouseY);
+    }
+
+    private List<Component> getActiveEffects() {
+        List<Component> effects = new ArrayList<>();
+        var upgrades = menu.upgrades();
+        int pumpkins = upgrades.getStackInSlot(SnowmanUpgradeInventory.BASE_PUMPKIN_SLOT).getCount();
+        int snowBlocks = upgrades.getStackInSlot(SnowmanUpgradeInventory.BASE_SNOW_SLOT).getCount();
+        int diamonds = upgrades.getStackInSlot(SnowmanUpgradeInventory.BASE_DIAMOND_SLOT).getCount();
+        if (pumpkins > 0) {
+            effects.add(colored("gui.super_snowmen.effects.attack_speed", 0xF59E42, pumpkins * 4));
+        }
+        if (snowBlocks > 0) {
+            effects.add(colored("gui.super_snowmen.effects.max_health", 0xEF5B6C, snowBlocks * 2));
+        }
+        if (diamonds > 0) {
+            effects.add(colored("gui.super_snowmen.effects.projectile_damage", 0x55DDE0, diamonds));
+        }
+
+        SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(upgrades);
+        boolean shulker = upgrades.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
+        int armor = Math.min(30, (int)tier.armor + (shulker ? 20 : 0));
+        if (armor > 0) {
+            effects.add(colored("gui.super_snowmen.effects.armor", 0xA9C7E8, armor));
+        }
+        if (tier.toughness > 0.0D) {
+            effects.add(colored("gui.super_snowmen.effects.toughness", 0x74A7C8, (int)tier.toughness));
+        }
+        if (tier.warmImmune) {
+            effects.add(colored("gui.super_snowmen.effects.burning_immunity", 0xFFB347));
+        }
+        if (tier.wetImmune) {
+            effects.add(colored("gui.super_snowmen.effects.drowning_immunity", 0x4AA3FF));
+        }
+        if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIRE_CHARGE)) {
+            effects.add(colored("gui.super_snowmen.effects.fire_immunity", 0xFF7A24));
+        }
+        if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.DRAGON_BREATH)) {
+            effects.add(colored("gui.super_snowmen.effects.dragon_breath_immunity", 0xC36BFF));
+        }
+        if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.TNT)) {
+            effects.add(colored("gui.super_snowmen.effects.explosion_immunity", 0xF04444));
+        }
+        if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL)) {
+            effects.add(colored("gui.super_snowmen.effects.wither_immunity", 0xA8A8B3));
+            effects.add(colored("gui.super_snowmen.effects.projectile_field", 0x7F8C9D));
+            effects.add(colored("gui.super_snowmen.effects.kill_healing", 0x67C587));
+        }
+        if (shulker) {
+            effects.add(colored("gui.super_snowmen.effects.levitation_immunity", 0xD78BE6));
+        }
+        return effects;
+    }
+
+    private Component colored(String key, int color, Object... args) {
+        return Component.translatable(key, args).withStyle(style -> style.withColor(color));
     }
 
     private record BarSegment(SnowmanUpgradeType type, int startX, int endX) {
