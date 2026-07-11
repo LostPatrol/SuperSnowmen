@@ -58,6 +58,9 @@ public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
     public static final String WEATHERPROOF_CHANNELING_TAG = "SuperSnowmenWeatherproofChanneling";
     private static final String WITHER_COUNTER_TAG = "SuperSnowmenWitherCounter";
+    private static final double FULL_DRAW_ARROW_SPEED = 3.0D;
+    private static final double ARROW_AIR_INERTIA = 0.99D;
+    private static final double ARROW_GRAVITY = 0.05D;
     private static final DyeColor[] FIREWORK_COLORS = {
             DyeColor.WHITE, DyeColor.ORANGE, DyeColor.MAGENTA, DyeColor.LIGHT_BLUE,
             DyeColor.YELLOW, DyeColor.LIME, DyeColor.PINK, DyeColor.GRAY,
@@ -199,14 +202,19 @@ public final class ProjectileReplacement {
         arrow.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
         LivingEntity target = owner.getTarget();
         if (target != null) {
-            double x = target.getX() - snowball.getX();
-            double y = target.getEyeY() - 1.1D - snowball.getY();
-            double z = target.getZ() - snowball.getZ();
-            double horizontalDistance = Math.sqrt(x * x + z * z);
-            double fullDrawArc = horizontalDistance * 0.2D * Mth.square(1.6D / 3.0D);
-            arrow.shoot(x, y + fullDrawArc, z, 3.0F, 0.0F);
+            Vec3 targetCenter = target.getBoundingBox().getCenter();
+            double horizontalSpread = target.getBbWidth() * 0.18D;
+            double verticalSpread = target.getBbHeight() * 0.18D;
+            Vec3 targetPoint = targetCenter.add(
+                    owner.getRandom().triangle(0.0D, horizontalSpread),
+                    owner.getRandom().triangle(0.0D, verticalSpread),
+                    owner.getRandom().triangle(0.0D, horizontalSpread)
+            );
+            Vec3 aim = calculateBowTrajectory(snowball.position(), targetPoint);
+            arrow.shoot(aim.x, aim.y, aim.z, (float)FULL_DRAW_ARROW_SPEED, 0.0F);
         } else if (fallbackVelocity.lengthSqr() > 0.0001D) {
-            arrow.shoot(fallbackVelocity.x, fallbackVelocity.y, fallbackVelocity.z, 3.0F, 0.0F);
+            arrow.shoot(fallbackVelocity.x, fallbackVelocity.y, fallbackVelocity.z,
+                    (float)FULL_DRAW_ARROW_SPEED, 0.0F);
         }
         arrow.setCritArrow(true);
         int power = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.POWER_ARROWS, bow);
@@ -222,6 +230,56 @@ public final class ProjectileReplacement {
         }
         arrow.pickup = AbstractArrow.Pickup.DISALLOWED;
         return arrow;
+    }
+
+    private static Vec3 calculateBowTrajectory(Vec3 origin, Vec3 target) {
+        Vec3 delta = target.subtract(origin);
+        double horizontalDistance = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
+        if (horizontalDistance < 1.0E-4D) {
+            return delta.normalize();
+        }
+
+        double lowAngle = -Math.PI / 3.0D;
+        double highAngle = Math.PI / 3.0D;
+        double lowHeight = arrowHeightAtDistance(lowAngle, horizontalDistance);
+        double highHeight = arrowHeightAtDistance(highAngle, horizontalDistance);
+        if (!Double.isFinite(lowHeight) || !Double.isFinite(highHeight)
+                || delta.y < lowHeight || delta.y > highHeight) {
+            return delta.normalize();
+        }
+
+        for (int iteration = 0; iteration < 32; iteration++) {
+            double angle = (lowAngle + highAngle) * 0.5D;
+            if (arrowHeightAtDistance(angle, horizontalDistance) < delta.y) {
+                lowAngle = angle;
+            } else {
+                highAngle = angle;
+            }
+        }
+
+        double angle = (lowAngle + highAngle) * 0.5D;
+        double horizontalScale = Math.cos(angle) / horizontalDistance;
+        return new Vec3(delta.x * horizontalScale, Math.sin(angle), delta.z * horizontalScale);
+    }
+
+    private static double arrowHeightAtDistance(double angle, double targetDistance) {
+        double horizontalVelocity = Math.cos(angle) * FULL_DRAW_ARROW_SPEED;
+        double verticalVelocity = Math.sin(angle) * FULL_DRAW_ARROW_SPEED;
+        double horizontalPosition = 0.0D;
+        double verticalPosition = 0.0D;
+        for (int tick = 0; tick < 200; tick++) {
+            double nextHorizontal = horizontalPosition + horizontalVelocity;
+            double nextVertical = verticalPosition + verticalVelocity;
+            if (nextHorizontal >= targetDistance) {
+                double partialTick = (targetDistance - horizontalPosition) / horizontalVelocity;
+                return Mth.lerp(partialTick, verticalPosition, nextVertical);
+            }
+            horizontalPosition = nextHorizontal;
+            verticalPosition = nextVertical;
+            horizontalVelocity *= ARROW_AIR_INERTIA;
+            verticalVelocity = verticalVelocity * ARROW_AIR_INERTIA - ARROW_GRAVITY;
+        }
+        return Double.NaN;
     }
 
     private static Entity createTnt(Snowball snowball, SnowGolem owner, Vec3 velocity) {
