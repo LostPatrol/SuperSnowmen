@@ -69,7 +69,9 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
         }
         if (isPluginSlot(slot)) {
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(item);
-            if (type == SnowmanUpgradeType.LIGHTNING_ROD || type == SnowmanUpgradeType.BOW) {
+            if (type == SnowmanUpgradeType.LIGHTNING_ROD
+                    || type == SnowmanUpgradeType.BOW
+                    || type == SnowmanUpgradeType.CROSSBOW) {
                 return getStackInSlot(slot).is(type.item()) || !hasProjectileUpgrade(type);
             }
             return type != null;
@@ -115,9 +117,17 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
     }
 
     public ItemStack findBow() {
+        return findFirstProjectileUpgrade(SnowmanUpgradeType.BOW);
+    }
+
+    public ItemStack findCrossbow() {
+        return findFirstProjectileUpgrade(SnowmanUpgradeType.CROSSBOW);
+    }
+
+    public ItemStack findFirstProjectileUpgrade(SnowmanUpgradeType type) {
         for (int slot = PLUGIN_START; slot < PLUGIN_START + PLUGIN_COUNT; slot++) {
             ItemStack stack = getStackInSlot(slot);
-            if (stack.is(Items.BOW)) {
+            if (stack.is(type.item())) {
                 return stack;
             }
         }

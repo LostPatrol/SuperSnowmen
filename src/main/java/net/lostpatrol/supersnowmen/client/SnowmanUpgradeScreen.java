@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -198,6 +199,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         Map<SnowmanUpgradeType, Integer> counts = new LinkedHashMap<>();
         int installed = 0;
         boolean hasTrident = !menu.upgrades().findPreferredTrident().isEmpty();
+        boolean hasFirework = menu.upgrades().hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET);
         for (int slot = SnowmanUpgradeInventory.PLUGIN_START; slot < SnowmanUpgradeInventory.PLUGIN_START + SnowmanUpgradeInventory.PLUGIN_COUNT; slot++) {
             ItemStack stack = menu.upgrades().getStackInSlot(slot);
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
@@ -205,6 +207,8 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
                 type = hasTrident ? SnowmanUpgradeType.TRIDENT : null;
             } else if (type == SnowmanUpgradeType.BOW) {
                 type = SnowmanUpgradeType.ARROW;
+            } else if (type == SnowmanUpgradeType.CROSSBOW) {
+                type = hasFirework ? SnowmanUpgradeType.FIREWORK_ROCKET : null;
             }
             if (type != null) {
                 counts.merge(UpgradeDisplay.canonicalType(type), stack.getCount(), Integer::sum);
@@ -316,6 +320,10 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             addBowEnchantment(effects, bow, Enchantments.POWER_ARROWS, bowColor);
             addBowEnchantment(effects, bow, Enchantments.PUNCH_ARROWS, bowColor);
         }
+        if (!upgrades.findCrossbow().isEmpty()
+                && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)) {
+            effects.add(rainbow("gui.super_snowmen.effects.firework_party"));
+        }
 
         SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(upgrades);
         boolean shulker = upgrades.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
@@ -368,6 +376,18 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
 
     private Component colored(String key, int color, Object... args) {
         return Component.translatable(key, args).withStyle(style -> style.withColor(color));
+    }
+
+    private Component rainbow(String key) {
+        int[] colors = {0xF94144, 0xF8961E, 0xF9C74F, 0x43AA8B, 0x4D96FF, 0xC77DFF};
+        String text = Component.translatable(key).getString();
+        MutableComponent result = Component.empty();
+        for (int index = 0; index < text.length(); index++) {
+            int color = colors[index % colors.length];
+            result.append(Component.literal(text.substring(index, index + 1))
+                    .withStyle(style -> style.withColor(color)));
+        }
+        return result;
     }
 
     private void addBowEnchantment(List<Component> effects, ItemStack bow, Enchantment enchantment, int color) {

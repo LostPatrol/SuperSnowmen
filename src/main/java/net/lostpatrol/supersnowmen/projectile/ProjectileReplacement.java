@@ -125,17 +125,27 @@ public final class ProjectileReplacement {
         List<SelectedUpgrade> upgrades = new ArrayList<>();
         ItemStack linkedTrident = inventory.findPreferredTrident();
         ItemStack bow = inventory.findBow();
+        ItemStack crossbow = inventory.findCrossbow();
+        ItemStack linkedFirework = inventory.findFirstProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET);
         for (int slot = SnowmanUpgradeInventory.PLUGIN_START; slot < SnowmanUpgradeInventory.PLUGIN_START + SnowmanUpgradeInventory.PLUGIN_COUNT; slot++) {
             ItemStack stack = inventory.getStackInSlot(slot);
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
             if (type != null && !stack.isEmpty()) {
                 if (type == SnowmanUpgradeType.LIGHTNING_ROD && !linkedTrident.isEmpty()) {
-                    upgrades.add(new SelectedUpgrade(slot, SnowmanUpgradeType.TRIDENT, linkedTrident.copy(), false, ItemStack.EMPTY));
+                    upgrades.add(new SelectedUpgrade(slot, SnowmanUpgradeType.TRIDENT, linkedTrident.copy(), false,
+                            ItemStack.EMPTY, ItemStack.EMPTY));
                 } else if (type == SnowmanUpgradeType.BOW) {
-                    upgrades.add(new SelectedUpgrade(slot, type, stack.copy(), false, stack.copy()));
+                    upgrades.add(new SelectedUpgrade(slot, type, stack.copy(), false, stack.copy(), ItemStack.EMPTY));
+                } else if (type == SnowmanUpgradeType.CROSSBOW) {
+                    if (!linkedFirework.isEmpty()) {
+                        upgrades.add(new SelectedUpgrade(slot, SnowmanUpgradeType.FIREWORK_ROCKET,
+                                linkedFirework.copy(), false, ItemStack.EMPTY, stack.copy()));
+                    }
                 } else {
                     ItemStack arrowBow = isArrowType(type) && !bow.isEmpty() ? bow.copy() : ItemStack.EMPTY;
-                    upgrades.add(new SelectedUpgrade(slot, type, stack.copy(), true, arrowBow));
+                    ItemStack fireworkCrossbow = type == SnowmanUpgradeType.FIREWORK_ROCKET && !crossbow.isEmpty()
+                            ? crossbow.copy() : ItemStack.EMPTY;
+                    upgrades.add(new SelectedUpgrade(slot, type, stack.copy(), true, arrowBow, fireworkCrossbow));
                 }
             }
         }
@@ -155,7 +165,8 @@ public final class ProjectileReplacement {
             case ARROW -> shootSelectedArrow(new Arrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
             case SPECTRAL_ARROW -> shootSelectedArrow(new SpectralArrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
             case FIRE_CHARGE -> createSmallFireball(snowball, owner, directDirection);
-            case FIREWORK_ROCKET -> createFireworkRocket(selected.stack, snowball, owner, directDirection, velocity.length());
+            case FIREWORK_ROCKET -> createFireworkRocket(selected.stack, selected.crossbow, snowball, owner,
+                    directDirection, velocity.length());
             case DRAGON_BREATH -> createDragonFireball(snowball, owner, directDirection);
             case TNT -> createTnt(snowball, owner, velocity);
             case WITHER_SKULL -> createWitherSkull(snowball, owner, directDirection);
@@ -174,6 +185,7 @@ public final class ProjectileReplacement {
             case SHULKER_SHELL -> createShulkerBullet(owner);
             case LIGHTNING_ROD -> null;
             case BOW -> shootBowArrow(new Arrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
+            case CROSSBOW -> null;
         };
     }
 
@@ -313,7 +325,8 @@ public final class ProjectileReplacement {
         return fireball;
     }
 
-    private static Entity createFireworkRocket(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 direction, double speed) {
+    private static Entity createFireworkRocket(ItemStack source, ItemStack crossbow, Snowball snowball,
+                                               SnowGolem owner, Vec3 direction, double speed) {
         ItemStack rocketItem = source.copy();
         rocketItem.setCount(1);
         CompoundTag fireworks = rocketItem.getOrCreateTagElement("Fireworks");
@@ -327,10 +340,23 @@ public final class ProjectileReplacement {
         fireworks.putByte("Flight", (byte)1);
         fireworks.put("Explosions", explosions);
 
+        double rocketSpeed = Math.max(1.0D, speed);
+        FireworkRocketEntity rocket = createFireworkEntity(rocketItem, snowball, owner, direction, rocketSpeed);
+        if (EnchantmentHelper.getItemEnchantmentLevel(Enchantments.MULTISHOT, crossbow) > 0) {
+            owner.level().addFreshEntity(createFireworkEntity(
+                    rocketItem, snowball, owner, direction.yRot((float)Math.toRadians(-10.0D)), rocketSpeed));
+            owner.level().addFreshEntity(createFireworkEntity(
+                    rocketItem, snowball, owner, direction.yRot((float)Math.toRadians(10.0D)), rocketSpeed));
+        }
+        return rocket;
+    }
+
+    private static FireworkRocketEntity createFireworkEntity(ItemStack rocketItem, Snowball snowball,
+                                                              SnowGolem owner, Vec3 direction, double speed) {
         FireworkRocketEntity rocket = new FireworkRocketEntity(
-                owner.level(), rocketItem, owner, snowball.getX(), snowball.getY(), snowball.getZ(), true
+                owner.level(), rocketItem.copy(), owner, snowball.getX(), snowball.getY(), snowball.getZ(), true
         );
-        rocket.setDeltaMovement(direction.normalize().scale(Math.max(1.0D, speed)));
+        rocket.setDeltaMovement(direction.normalize().scale(speed));
         return rocket;
     }
 
@@ -591,6 +617,7 @@ public final class ProjectileReplacement {
             case FIREWORK_ROCKET -> null;
             case LIGHTNING_ROD -> null;
             case BOW -> null;
+            case CROSSBOW -> null;
         };
         if (sound != null) {
             owner.level().playSound(null, owner.blockPosition(), sound, SoundSource.HOSTILE, 1.0F, 1.0F);
@@ -610,7 +637,7 @@ public final class ProjectileReplacement {
     }
 
     private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack, boolean consumeItem,
-                                   ItemStack bow) {
+                                   ItemStack bow, ItemStack crossbow) {
     }
 
 }
