@@ -3,7 +3,6 @@ package net.lostpatrol.supersnowmen;
 import com.mojang.logging.LogUtils;
 import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.menu.SuperSnowmenMenus;
-import net.lostpatrol.supersnowmen.network.NetworkHandler;
 import net.lostpatrol.supersnowmen.snowman.SnowmanEvents;
 import net.lostpatrol.supersnowmen.snowman.SnowmanModEvents;
 import net.minecraftforge.common.MinecraftForge;
@@ -21,7 +20,6 @@ public class SuperSnowmen {
         var modBus = context.getModEventBus();
         SuperSnowmenMenus.MENUS.register(modBus);
         modBus.addListener(SnowmanModEvents::registerCapabilities);
-        NetworkHandler.register();
         context.registerConfig(ModConfig.Type.SERVER, SuperSnowmenConfig.SPEC);
 
         var forgeBus = MinecraftForge.EVENT_BUS;

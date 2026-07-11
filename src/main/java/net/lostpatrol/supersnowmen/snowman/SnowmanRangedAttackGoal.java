@@ -114,7 +114,7 @@ public class SnowmanRangedAttackGoal extends Goal {
         int pumpkins = SnowmanUpgradeAccess.get(mob)
                 .map(inventory -> inventory.getStackInSlot(SnowmanUpgradeInventory.BASE_PUMPKIN_SLOT).getCount())
                 .orElse(0);
-        double attacksPerInterval = 1.0D + pumpkins * 0.02D;
+        double attacksPerInterval = 1.0D + pumpkins * 0.04D;
         return Math.max(1, Mth.floor(baseInterval / attacksPerInterval));
     }
 }

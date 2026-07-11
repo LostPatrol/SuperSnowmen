@@ -93,12 +93,12 @@ public class SnowmanUpgradeMenu extends AbstractContainerMenu {
     private void addPlayerSlots(Inventory playerInventory) {
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(playerInventory, col + row * 9 + 9, 17 + col * 18, 106 + row * 18));
+                addSlot(new Slot(playerInventory, col + row * 9 + 9, 17 + col * 18, 114 + row * 18));
             }
         }
 
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(playerInventory, col, 17 + col * 18, 164));
+            addSlot(new Slot(playerInventory, col, 17 + col * 18, 172));
         }
     }
 }

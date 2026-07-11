@@ -9,7 +9,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgradeMenu> {
@@ -17,12 +19,18 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
     private static final int BORDER = 0xFF8FBCBB;
     private static final int TEXT = 0xFFECEFF4;
     private static final int EMPTY_BAR = 0xFF4C566A;
+    private static final int BAR_X = 17;
+    private static final int BAR_Y = 94;
+    private static final int BAR_WIDTH = 162;
+    private static final int BAR_HEIGHT = 6;
+
+    private List<BarSegment> barSegments = List.of();
 
     public SnowmanUpgradeScreen(SnowmanUpgradeMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         imageWidth = 196;
-        imageHeight = 188;
-        inventoryLabelY = 94;
+        imageHeight = 196;
+        inventoryLabelY = 102;
     }
 
     @Override
@@ -41,6 +49,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
+        renderProjectileBarTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
@@ -62,33 +71,45 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
     }
 
     private void drawProjectileBar(GuiGraphics graphics) {
-        int x = leftPos + 17;
-        int y = topPos + 84;
-        int width = 162;
-        int height = 8;
+        int x = leftPos + BAR_X;
+        int y = topPos + BAR_Y;
         Map<SnowmanUpgradeType, Integer> counts = new LinkedHashMap<>();
-        int total = 0;
         for (int slot = SnowmanUpgradeInventory.PLUGIN_START; slot < SnowmanUpgradeInventory.PLUGIN_START + SnowmanUpgradeInventory.PLUGIN_COUNT; slot++) {
             ItemStack stack = menu.upgrades().getStackInSlot(slot);
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
             if (type != null) {
                 counts.merge(type, stack.getCount(), Integer::sum);
-                total += stack.getCount();
             }
         }
 
-        graphics.fill(x, y, x + width, y + height, EMPTY_BAR);
-        int used = Math.min(total, SnowmanUpgradeInventory.PLUGIN_COUNT);
-        int offset = 0;
+        graphics.fill(x, y, x + BAR_WIDTH, y + BAR_HEIGHT, EMPTY_BAR);
+        List<BarSegment> segments = new ArrayList<>();
+        int usedSlots = 0;
         for (Map.Entry<SnowmanUpgradeType, Integer> entry : counts.entrySet()) {
-            int segment = used == 0 ? 0 : Math.round(width * (entry.getValue() / (float) SnowmanUpgradeInventory.PLUGIN_COUNT));
-            if (segment <= 0) {
-                continue;
-            }
-            graphics.fill(x + offset, y, Math.min(x + width, x + offset + segment), y + height, 0xFF000000 | entry.getKey().color());
-            offset += segment;
+            int start = Math.round(BAR_WIDTH * (usedSlots / (float)SnowmanUpgradeInventory.PLUGIN_COUNT));
+            usedSlots += entry.getValue();
+            int end = Math.round(BAR_WIDTH * (usedSlots / (float)SnowmanUpgradeInventory.PLUGIN_COUNT));
+            graphics.fill(x + start, y, x + end, y + BAR_HEIGHT, 0xFF000000 | entry.getKey().color());
+            segments.add(new BarSegment(entry.getKey(), x + start, x + end));
         }
-        graphics.fill(x, y, x + width, y + 1, 0xFF2E3440);
-        graphics.fill(x, y + height - 1, x + width, y + height, 0xFF2E3440);
+        barSegments = List.copyOf(segments);
+        graphics.fill(x, y, x + BAR_WIDTH, y + 1, 0xFF2E3440);
+        graphics.fill(x, y + BAR_HEIGHT - 1, x + BAR_WIDTH, y + BAR_HEIGHT, 0xFF2E3440);
+    }
+
+    private void renderProjectileBarTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        int y = topPos + BAR_Y;
+        if (mouseY < y || mouseY >= y + BAR_HEIGHT) {
+            return;
+        }
+        for (BarSegment segment : barSegments) {
+            if (mouseX >= segment.startX() && mouseX < segment.endX()) {
+                graphics.renderTooltip(font, new ItemStack(segment.type().item()).getHoverName(), mouseX, mouseY);
+                return;
+            }
+        }
+    }
+
+    private record BarSegment(SnowmanUpgradeType type, int startX, int endX) {
     }
 }

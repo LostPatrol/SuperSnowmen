@@ -66,4 +66,13 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
     public static boolean isSpecialSlot(int slot) {
         return slot >= SPECIAL_START && slot < SPECIAL_START + SPECIAL_COUNT;
     }
+
+    public boolean hasProjectileUpgrade(SnowmanUpgradeType type) {
+        for (int slot = PLUGIN_START; slot < PLUGIN_START + PLUGIN_COUNT; slot++) {
+            if (getStackInSlot(slot).is(type.item())) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

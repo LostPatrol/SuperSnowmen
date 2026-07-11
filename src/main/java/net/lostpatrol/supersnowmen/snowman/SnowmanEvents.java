@@ -4,27 +4,30 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import net.lostpatrol.supersnowmen.SuperSnowmen;
 import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.menu.SnowmanUpgradeMenu;
-import net.lostpatrol.supersnowmen.network.NetworkHandler;
-import net.lostpatrol.supersnowmen.network.packet.PacketOpenSnowmanUpgrade;
 import net.lostpatrol.supersnowmen.projectile.ProjectileReplacement;
 import net.minecraft.commands.Commands;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.RangedAttackGoal;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
-import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.network.NetworkHooks;
 
 public final class SnowmanEvents {
     private SnowmanEvents() {
@@ -52,13 +55,16 @@ public final class SnowmanEvents {
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
             player.swing(event.getHand());
-            NetworkHandler.sendOpenSnowmanUpgradeToServer(new PacketOpenSnowmanUpgrade(snowman.getId(), player.isShiftKeyDown()));
             return;
         }
 
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
         if (player instanceof ServerPlayer serverPlayer) {
+            if (event.getItemStack().is(Items.SNOWBALL)) {
+                healWithSnowball(serverPlayer, snowman, event.getItemStack());
+                return;
+            }
             handleSnowmanInteraction(serverPlayer, snowman, player.isShiftKeyDown());
         }
     }
@@ -107,10 +113,18 @@ public final class SnowmanEvents {
         }
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
             SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(inventory);
-            String damageId = event.getSource().typeHolder().unwrapKey().map(key -> key.location().toString()).orElse("");
-            if ((tier.warmImmune && damageId.endsWith("on_fire"))
-                    || (tier.wetImmune && damageId.endsWith("drown"))
-                    || (tier.fireproof && (damageId.endsWith("in_fire") || damageId.endsWith("on_fire") || damageId.endsWith("lava") || damageId.endsWith("hot_floor")))) {
+            boolean dragonBreathImmune = inventory.hasProjectileUpgrade(SnowmanUpgradeType.DRAGON_BREATH)
+                    && event.getSource().is(DamageTypes.DRAGON_BREATH);
+            boolean explosionImmune = inventory.hasProjectileUpgrade(SnowmanUpgradeType.TNT)
+                    && (event.getSource().is(DamageTypes.EXPLOSION) || event.getSource().is(DamageTypes.PLAYER_EXPLOSION));
+            if ((tier.warmImmune && event.getSource().is(DamageTypes.ON_FIRE))
+                    || (tier.wetImmune && event.getSource().is(DamageTypes.DROWN))
+                    || (tier.fireproof && (event.getSource().is(DamageTypes.IN_FIRE)
+                    || event.getSource().is(DamageTypes.ON_FIRE)
+                    || event.getSource().is(DamageTypes.LAVA)
+                    || event.getSource().is(DamageTypes.HOT_FLOOR)))
+                    || dragonBreathImmune
+                    || explosionImmune) {
                 event.setCanceled(true);
             }
         });
@@ -159,6 +173,18 @@ public final class SnowmanEvents {
                 player.drop(stack, false);
             }
         }
+    }
+
+    private static void healWithSnowball(ServerPlayer player, SnowGolem snowman, ItemStack snowballs) {
+        if (snowman.getHealth() >= snowman.getMaxHealth()) {
+            return;
+        }
+        snowman.heal(10.0F);
+        if (!player.getAbilities().instabuild) {
+            snowballs.shrink(1);
+        }
+        player.level().playSound(null, snowman.blockPosition(), SoundEvents.SNOW_PLACE, SoundSource.PLAYERS, 1.0F, 1.0F);
+        player.serverLevel().sendParticles(ParticleTypes.HEART, snowman.getX(), snowman.getY() + snowman.getBbHeight(), snowman.getZ(), 5, 0.25D, 0.25D, 0.25D, 0.0D);
     }
 
     private static void installAttackGoal(SnowGolem snowman) {

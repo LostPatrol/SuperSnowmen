@@ -98,7 +98,7 @@ public final class ProjectileReplacement {
             case FIREWORK_ROCKET -> copyMotion(new FireworkRocketEntity(owner.level(), selected.stack.copy(), owner, snowball.getX(), snowball.getY(), snowball.getZ(), true), snowball, velocity);
             case DRAGON_BREATH -> createDragonFireball(snowball, owner, direction, velocity);
             case TNT -> createTnt(snowball, owner, velocity);
-            case WITHER_SKULL -> createWitherSkull(snowball, owner, direction, velocity);
+            case WITHER_SKULL -> createWitherSkull(snowball, owner, direction);
             case SCULK_SHRIEKER -> {
                 sonicBoom(snowball, owner, direction);
                 yield null;
@@ -134,13 +134,22 @@ public final class ProjectileReplacement {
         return copyMotion(fireball, snowball, velocity);
     }
 
-    private static Entity createWitherSkull(Snowball snowball, SnowGolem owner, Vec3 direction, Vec3 velocity) {
-        WitherSkull skull = new WitherSkull(owner.level(), owner, direction.x, direction.y, direction.z);
+    private static Entity createWitherSkull(Snowball snowball, SnowGolem owner, Vec3 fallbackDirection) {
+        LivingEntity target = owner.getTarget();
+        Vec3 aim = target == null
+                ? fallbackDirection
+                : new Vec3(
+                target.getX() - snowball.getX(),
+                target.getY() + target.getEyeHeight() * 0.5D - snowball.getY(),
+                target.getZ() - snowball.getZ()
+        );
+        WitherSkull skull = new WitherSkull(owner.level(), owner, aim.x, aim.y, aim.z);
+        skull.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
         int counter = owner.getPersistentData().getInt(WITHER_COUNTER_TAG) + 1;
         owner.getPersistentData().putInt(WITHER_COUNTER_TAG, counter);
         skull.setDangerous(counter % 4 == 0);
         skull.getPersistentData().putBoolean(NO_BLOCK_DAMAGE_TAG, true);
-        return copyMotion(skull, snowball, velocity);
+        return skull;
     }
 
     private static Entity createFangs(Snowball snowball, SnowGolem owner, Vec3 direction) {
