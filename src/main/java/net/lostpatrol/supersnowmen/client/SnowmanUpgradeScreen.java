@@ -278,8 +278,6 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
                 ? upgrades.areAllAttributeSlotsActive() ? 2 : 1
                 : 0;
         if (setBonusLevel > 0) {
-            effects.add(colored("gui.super_snowmen.effects.super_snowman", 0x7AD7F0));
-            effects.add(colored("gui.super_snowmen.effects.current", 0xC8D2DC));
             effects.add(colored(setBonusLevel == 2
                     ? "gui.super_snowmen.effects.regeneration_ii"
                     : "gui.super_snowmen.effects.regeneration_i", 0xCD5CAB));
@@ -335,6 +333,9 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.EGG)) {
             effects.add(colored("gui.super_snowmen.effects.cluck", 0xF2D16B));
             effects.add(colored("gui.super_snowmen.effects.slow_falling", 0xD7F0FF));
+        }
+        if (!effects.isEmpty()) {
+            effects.add(0, colored("gui.super_snowmen.effects.super_snowman", 0x7AD7F0));
         }
         return effects;
     }

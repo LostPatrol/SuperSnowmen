@@ -114,12 +114,7 @@ public final class SnowmanUpgradeEffects {
         }
     }
 
-    public enum ArmorTier {
-        NONE(0.0D, 0.0D, false, false),
-        ICE(5.0D, 0.0D, true, false),
-        PACKED_ICE(10.0D, 0.0D, true, true),
-        BLUE_ICE(15.0D, 5.0D, true, true);
-
+    public static final class ArmorTier {
         public final double armor;
         public final double toughness;
         public final boolean climateImmune;
@@ -133,22 +128,30 @@ public final class SnowmanUpgradeEffects {
         }
 
         static ArmorTier from(SnowmanUpgradeInventory inventory) {
-            ArmorTier result = NONE;
+            double armor = 0.0D;
+            double toughness = 0.0D;
+            boolean climateImmune = false;
+            boolean wetImmune = false;
             for (int slot = SnowmanUpgradeInventory.SPECIAL_START; slot < SnowmanUpgradeInventory.SPECIAL_START + SnowmanUpgradeInventory.SPECIAL_COUNT; slot++) {
                 ItemStack stack = inventory.getStackInSlot(slot);
                 if (stack.getCount() < 64) {
                     continue;
                 }
                 if (stack.is(Items.BLUE_ICE)) {
-                    return BLUE_ICE;
-                }
-                if (stack.is(Items.PACKED_ICE)) {
-                    result = PACKED_ICE;
-                } else if (stack.is(Items.ICE) && result == NONE) {
-                    result = ICE;
+                    armor += 15.0D;
+                    toughness += 5.0D;
+                    climateImmune = true;
+                    wetImmune = true;
+                } else if (stack.is(Items.PACKED_ICE)) {
+                    armor += 10.0D;
+                    climateImmune = true;
+                    wetImmune = true;
+                } else if (stack.is(Items.ICE)) {
+                    armor += 5.0D;
+                    climateImmune = true;
                 }
             }
-            return result;
+            return new ArmorTier(armor, toughness, climateImmune, wetImmune);
         }
     }
 }
