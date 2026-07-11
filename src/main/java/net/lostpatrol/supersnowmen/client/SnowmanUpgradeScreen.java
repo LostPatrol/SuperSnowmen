@@ -11,6 +11,9 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -200,6 +203,8 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
             if (type == SnowmanUpgradeType.LIGHTNING_ROD) {
                 type = hasTrident ? SnowmanUpgradeType.TRIDENT : null;
+            } else if (type == SnowmanUpgradeType.BOW) {
+                type = SnowmanUpgradeType.ARROW;
             }
             if (type != null) {
                 counts.merge(UpgradeDisplay.canonicalType(type), stack.getCount(), Integer::sum);
@@ -303,6 +308,15 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             effects.add(colored("gui.super_snowmen.effects.protection", 0xFFFFFF, romanLevel(diamonds)));
         }
 
+        ItemStack bow = upgrades.findBow();
+        if (!bow.isEmpty()) {
+            int bowColor = SnowmanUpgradeType.BOW.color();
+            effects.add(colored("gui.super_snowmen.effects.archery", bowColor));
+            addBowEnchantment(effects, bow, Enchantments.FLAMING_ARROWS, bowColor);
+            addBowEnchantment(effects, bow, Enchantments.POWER_ARROWS, bowColor);
+            addBowEnchantment(effects, bow, Enchantments.PUNCH_ARROWS, bowColor);
+        }
+
         SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(upgrades);
         boolean shulker = upgrades.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
         int armor = Math.min(30, (int)tier.armor + (shulker ? 20 : 0));
@@ -356,12 +370,25 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         return Component.translatable(key, args).withStyle(style -> style.withColor(color));
     }
 
+    private void addBowEnchantment(List<Component> effects, ItemStack bow, Enchantment enchantment, int color) {
+        int level = EnchantmentHelper.getItemEnchantmentLevel(enchantment, bow);
+        if (level <= 0) {
+            return;
+        }
+        Component name = Component.translatable(enchantment.getDescriptionId());
+        if (enchantment.getMaxLevel() > 1) {
+            name = name.copy().append(" ").append(romanLevel(level));
+        }
+        effects.add(name.copy().withStyle(style -> style.withColor(color)));
+    }
+
     private String romanLevel(int level) {
         return switch (level) {
             case 1 -> "I";
             case 2 -> "II";
             case 3 -> "III";
-            default -> "IV";
+            case 4 -> "IV";
+            default -> "V";
         };
     }
 

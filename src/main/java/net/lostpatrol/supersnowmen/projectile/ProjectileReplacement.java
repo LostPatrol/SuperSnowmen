@@ -103,7 +103,7 @@ public final class ProjectileReplacement {
         if (replacement != null) {
             event.getLevel().addFreshEntity(replacement);
         }
-        playProjectileSound(snowman, selected.type);
+        playProjectileSound(snowman, selected);
         consumeIfNeeded(inventory, selected);
     }
 
@@ -121,14 +121,18 @@ public final class ProjectileReplacement {
     private static SelectedUpgrade select(SnowmanUpgradeInventory inventory, SnowGolem snowman) {
         List<SelectedUpgrade> upgrades = new ArrayList<>();
         ItemStack linkedTrident = inventory.findPreferredTrident();
+        ItemStack bow = inventory.findBow();
         for (int slot = SnowmanUpgradeInventory.PLUGIN_START; slot < SnowmanUpgradeInventory.PLUGIN_START + SnowmanUpgradeInventory.PLUGIN_COUNT; slot++) {
             ItemStack stack = inventory.getStackInSlot(slot);
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
             if (type != null && !stack.isEmpty()) {
                 if (type == SnowmanUpgradeType.LIGHTNING_ROD && !linkedTrident.isEmpty()) {
-                    upgrades.add(new SelectedUpgrade(slot, SnowmanUpgradeType.TRIDENT, linkedTrident.copy(), false));
+                    upgrades.add(new SelectedUpgrade(slot, SnowmanUpgradeType.TRIDENT, linkedTrident.copy(), false, ItemStack.EMPTY));
+                } else if (type == SnowmanUpgradeType.BOW) {
+                    upgrades.add(new SelectedUpgrade(slot, type, stack.copy(), false, stack.copy()));
                 } else {
-                    upgrades.add(new SelectedUpgrade(slot, type, stack.copy(), true));
+                    ItemStack arrowBow = isArrowType(type) && !bow.isEmpty() ? bow.copy() : ItemStack.EMPTY;
+                    upgrades.add(new SelectedUpgrade(slot, type, stack.copy(), true, arrowBow));
                 }
             }
         }
@@ -145,8 +149,8 @@ public final class ProjectileReplacement {
         Vec3 direction = velocity.lengthSqr() > 0.0001D ? velocity.normalize() : owner.getLookAngle();
         Vec3 directDirection = directionToTarget(snowball, owner.getTarget(), direction);
         return switch (selected.type) {
-            case ARROW -> shootArrow(new Arrow(owner.level(), owner), snowball, velocity);
-            case SPECTRAL_ARROW -> shootArrow(new SpectralArrow(owner.level(), owner), snowball, velocity);
+            case ARROW -> shootSelectedArrow(new Arrow(owner.level(), owner), snowball, velocity, selected.bow);
+            case SPECTRAL_ARROW -> shootSelectedArrow(new SpectralArrow(owner.level(), owner), snowball, velocity, selected.bow);
             case FIRE_CHARGE -> createSmallFireball(snowball, owner, directDirection);
             case FIREWORK_ROCKET -> createFireworkRocket(selected.stack, snowball, owner, directDirection, velocity.length());
             case DRAGON_BREATH -> createDragonFireball(snowball, owner, directDirection);
@@ -160,19 +164,51 @@ public final class ProjectileReplacement {
                 createFangLine(owner, directDirection);
                 yield null;
             }
-            case TIPPED_ARROW -> createTippedArrow(selected.stack, snowball, owner, velocity);
+            case TIPPED_ARROW -> createTippedArrow(selected.stack, selected.bow, snowball, owner, velocity);
             case POTION, SPLASH_POTION -> createPotion(selected.stack, snowball, owner, velocity);
             case EGG -> copyMotion(new ThrownEgg(owner.level(), owner), snowball, velocity);
             case TRIDENT -> shootArrow(createTrident(selected.stack, owner), snowball, velocity);
             case SHULKER_SHELL -> createShulkerBullet(owner);
             case LIGHTNING_ROD -> null;
+            case BOW -> shootBowArrow(new Arrow(owner.level(), owner), snowball, velocity, selected.bow);
         };
+    }
+
+    private static boolean isArrowType(SnowmanUpgradeType type) {
+        return type == SnowmanUpgradeType.ARROW
+                || type == SnowmanUpgradeType.SPECTRAL_ARROW
+                || type == SnowmanUpgradeType.TIPPED_ARROW;
+    }
+
+    private static AbstractArrow shootSelectedArrow(AbstractArrow arrow, Snowball snowball, Vec3 velocity, ItemStack bow) {
+        return bow.isEmpty() ? shootArrow(arrow, snowball, velocity) : shootBowArrow(arrow, snowball, velocity, bow);
     }
 
     private static AbstractArrow shootArrow(AbstractArrow arrow, Snowball snowball, Vec3 velocity) {
         arrow.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
         if (velocity.lengthSqr() > 0.0001D) {
             arrow.shoot(velocity.x, velocity.y, velocity.z, 1.6F, 0.0F);
+        }
+        arrow.pickup = AbstractArrow.Pickup.DISALLOWED;
+        return arrow;
+    }
+
+    private static AbstractArrow shootBowArrow(AbstractArrow arrow, Snowball snowball, Vec3 velocity, ItemStack bow) {
+        arrow.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
+        if (velocity.lengthSqr() > 0.0001D) {
+            arrow.shoot(velocity.x, velocity.y, velocity.z, 3.0F, 1.0F);
+        }
+        arrow.setCritArrow(true);
+        int power = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.POWER_ARROWS, bow);
+        if (power > 0) {
+            arrow.setBaseDamage(arrow.getBaseDamage() + power * 0.5D + 0.5D);
+        }
+        int punch = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.PUNCH_ARROWS, bow);
+        if (punch > 0) {
+            arrow.setKnockback(punch);
+        }
+        if (EnchantmentHelper.getItemEnchantmentLevel(Enchantments.FLAMING_ARROWS, bow) > 0) {
+            arrow.setSecondsOnFire(100);
         }
         arrow.pickup = AbstractArrow.Pickup.DISALLOWED;
         return arrow;
@@ -318,10 +354,10 @@ public final class ProjectileReplacement {
         return skull;
     }
 
-    private static Entity createTippedArrow(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 velocity) {
+    private static Entity createTippedArrow(ItemStack source, ItemStack bow, Snowball snowball, SnowGolem owner, Vec3 velocity) {
         Arrow arrow = new Arrow(owner.level(), owner);
         arrow.setEffectsFromItem(source);
-        return shootArrow(arrow, snowball, velocity);
+        return shootSelectedArrow(arrow, snowball, velocity, bow);
     }
 
     private static Entity createPotion(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 velocity) {
@@ -454,7 +490,13 @@ public final class ProjectileReplacement {
         owner.playSound(SoundEvents.SNOW_GOLEM_SHOOT, 1.0F, 0.4F / (owner.getRandom().nextFloat() * 0.4F + 0.8F));
     }
 
-    private static void playProjectileSound(SnowGolem owner, SnowmanUpgradeType type) {
+    private static void playProjectileSound(SnowGolem owner, SelectedUpgrade selected) {
+        SnowmanUpgradeType type = selected.type;
+        if (type == SnowmanUpgradeType.BOW || isArrowType(type) && !selected.bow.isEmpty()) {
+            owner.level().playSound(null, owner.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.HOSTILE,
+                    1.0F, 1.0F / (owner.getRandom().nextFloat() * 0.4F + 1.2F) + 0.5F);
+            return;
+        }
         if (type == SnowmanUpgradeType.SHULKER_SHELL) {
             owner.level().playSound(
                     null,
@@ -480,6 +522,7 @@ public final class ProjectileReplacement {
             case SHULKER_SHELL -> null;
             case FIREWORK_ROCKET -> null;
             case LIGHTNING_ROD -> null;
+            case BOW -> null;
         };
         if (sound != null) {
             owner.level().playSound(null, owner.blockPosition(), sound, SoundSource.HOSTILE, 1.0F, 1.0F);
@@ -498,7 +541,8 @@ public final class ProjectileReplacement {
         }
     }
 
-    private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack, boolean consumeItem) {
+    private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack, boolean consumeItem,
+                                   ItemStack bow) {
     }
 
 }

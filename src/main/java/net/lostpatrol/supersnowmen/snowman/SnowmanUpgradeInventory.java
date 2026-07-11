@@ -69,9 +69,8 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
         }
         if (isPluginSlot(slot)) {
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(item);
-            if (type == SnowmanUpgradeType.LIGHTNING_ROD) {
-                return getStackInSlot(slot).is(Items.LIGHTNING_ROD)
-                        || !hasProjectileUpgrade(SnowmanUpgradeType.LIGHTNING_ROD);
+            if (type == SnowmanUpgradeType.LIGHTNING_ROD || type == SnowmanUpgradeType.BOW) {
+                return getStackInSlot(slot).is(type.item()) || !hasProjectileUpgrade(type);
             }
             return type != null;
         }
@@ -113,6 +112,16 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
             }
         }
         return first;
+    }
+
+    public ItemStack findBow() {
+        for (int slot = PLUGIN_START; slot < PLUGIN_START + PLUGIN_COUNT; slot++) {
+            ItemStack stack = getStackInSlot(slot);
+            if (stack.is(Items.BOW)) {
+                return stack;
+            }
+        }
+        return ItemStack.EMPTY;
     }
 
     public boolean hasChannelingTrident() {
