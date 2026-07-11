@@ -8,6 +8,7 @@ import net.lostpatrol.supersnowmen.network.SuperSnowmenNetwork;
 import net.lostpatrol.supersnowmen.projectile.ProjectileReplacement;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -18,11 +19,14 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.ai.goal.RangedAttackGoal;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
@@ -31,13 +35,18 @@ import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.ProjectileImpactEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.NetworkHooks;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.damagesource.CombatRules;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -172,6 +181,39 @@ public final class SnowmanEvents {
                 event.setAmount(event.getAmount() + diamonds);
             }
         });
+    }
+
+    public static void onLivingDamage(LivingDamageEvent event) {
+        if (!(event.getEntity() instanceof SnowGolem snowman)
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return;
+        }
+        SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
+            int diamonds = inventory.getStackInSlot(SnowmanUpgradeInventory.BASE_DIAMOND_SLOT).getCount();
+            if (diamonds > 0) {
+                event.setAmount(CombatRules.getDamageAfterMagicAbsorb(event.getAmount(), diamonds));
+            }
+        });
+    }
+
+    public static void onProjectileImpact(ProjectileImpactEvent event) {
+        if (!(event.getProjectile() instanceof ThrownTrident trident)
+                || !trident.getPersistentData().getBoolean(ProjectileReplacement.WEATHERPROOF_CHANNELING_TAG)
+                || !(event.getRayTraceResult() instanceof EntityHitResult entityHit)
+                || !(trident.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)
+                || serverLevel.isThundering()) {
+            return;
+        }
+        var hitPos = entityHit.getEntity().blockPosition();
+        if (!serverLevel.canSeeSky(hitPos)) {
+            return;
+        }
+        LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(serverLevel);
+        if (lightning != null) {
+            lightning.moveTo(Vec3.atBottomCenterOf(hitPos));
+            serverLevel.addFreshEntity(lightning);
+            trident.getPersistentData().remove(ProjectileReplacement.WEATHERPROOF_CHANNELING_TAG);
+        }
     }
 
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {

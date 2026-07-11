@@ -56,6 +56,7 @@ import java.util.Map;
 
 public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
+    public static final String WEATHERPROOF_CHANNELING_TAG = "SuperSnowmenWeatherproofChanneling";
     private static final String WITHER_COUNTER_TAG = "SuperSnowmenWitherCounter";
     private static final DyeColor[] FIREWORK_COLORS = {
             DyeColor.WHITE, DyeColor.ORANGE, DyeColor.MAGENTA, DyeColor.LIGHT_BLUE,
@@ -119,11 +120,16 @@ public final class ProjectileReplacement {
 
     private static SelectedUpgrade select(SnowmanUpgradeInventory inventory, SnowGolem snowman) {
         List<SelectedUpgrade> upgrades = new ArrayList<>();
+        ItemStack linkedTrident = inventory.findPreferredTrident();
         for (int slot = SnowmanUpgradeInventory.PLUGIN_START; slot < SnowmanUpgradeInventory.PLUGIN_START + SnowmanUpgradeInventory.PLUGIN_COUNT; slot++) {
             ItemStack stack = inventory.getStackInSlot(slot);
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
             if (type != null && !stack.isEmpty()) {
-                upgrades.add(new SelectedUpgrade(slot, type, stack.copy()));
+                if (type == SnowmanUpgradeType.LIGHTNING_ROD && !linkedTrident.isEmpty()) {
+                    upgrades.add(new SelectedUpgrade(slot, SnowmanUpgradeType.TRIDENT, linkedTrident.copy(), false));
+                } else {
+                    upgrades.add(new SelectedUpgrade(slot, type, stack.copy(), true));
+                }
             }
         }
         if (upgrades.isEmpty()) {
@@ -159,6 +165,7 @@ public final class ProjectileReplacement {
             case EGG -> copyMotion(new ThrownEgg(owner.level(), owner), snowball, velocity);
             case TRIDENT -> shootArrow(createTrident(selected.stack, owner), snowball, velocity);
             case SHULKER_SHELL -> createShulkerBullet(owner);
+            case LIGHTNING_ROD -> null;
         };
     }
 
@@ -290,7 +297,15 @@ public final class ProjectileReplacement {
         enchantments.remove(Enchantments.LOYALTY);
         enchantments.remove(Enchantments.RIPTIDE);
         EnchantmentHelper.setEnchantments(enchantments, trident);
-        return new ThrownTrident(owner.level(), owner, trident);
+        ThrownTrident thrown = new ThrownTrident(owner.level(), owner, trident);
+        boolean lightningRodEquipped = SnowmanUpgradeAccess.get(owner)
+                .map(inventory -> inventory.hasProjectileUpgrade(SnowmanUpgradeType.LIGHTNING_ROD))
+                .orElse(false);
+        if (lightningRodEquipped
+                && EnchantmentHelper.getItemEnchantmentLevel(Enchantments.CHANNELING, trident) > 0) {
+            thrown.getPersistentData().putBoolean(WEATHERPROOF_CHANNELING_TAG, true);
+        }
+        return thrown;
     }
 
     private static Entity createWitherSkull(Snowball snowball, SnowGolem owner, Vec3 fallbackDirection) {
@@ -464,6 +479,7 @@ public final class ProjectileReplacement {
             case TRIDENT -> SoundEvents.TRIDENT_THROW;
             case SHULKER_SHELL -> null;
             case FIREWORK_ROCKET -> null;
+            case LIGHTNING_ROD -> null;
         };
         if (sound != null) {
             owner.level().playSound(null, owner.blockPosition(), sound, SoundSource.HOSTILE, 1.0F, 1.0F);
@@ -471,6 +487,9 @@ public final class ProjectileReplacement {
     }
 
     private static void consumeIfNeeded(SnowmanUpgradeInventory inventory, SelectedUpgrade selected) {
+        if (!selected.consumeItem) {
+            return;
+        }
         boolean potionLike = selected.type == SnowmanUpgradeType.TIPPED_ARROW
                 || selected.type == SnowmanUpgradeType.POTION
                 || selected.type == SnowmanUpgradeType.SPLASH_POTION;
@@ -479,7 +498,7 @@ public final class ProjectileReplacement {
         }
     }
 
-    private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack) {
+    private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack, boolean consumeItem) {
     }
 
 }

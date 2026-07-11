@@ -194,9 +194,13 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         int y = topPos + BAR_Y;
         Map<SnowmanUpgradeType, Integer> counts = new LinkedHashMap<>();
         int installed = 0;
+        boolean hasTrident = !menu.upgrades().findPreferredTrident().isEmpty();
         for (int slot = SnowmanUpgradeInventory.PLUGIN_START; slot < SnowmanUpgradeInventory.PLUGIN_START + SnowmanUpgradeInventory.PLUGIN_COUNT; slot++) {
             ItemStack stack = menu.upgrades().getStackInSlot(slot);
             SnowmanUpgradeType type = SnowmanUpgradeType.byItem(stack.getItem());
+            if (type == SnowmanUpgradeType.LIGHTNING_ROD) {
+                type = hasTrident ? SnowmanUpgradeType.TRIDENT : null;
+            }
             if (type != null) {
                 counts.merge(UpgradeDisplay.canonicalType(type), stack.getCount(), Integer::sum);
                 installed += stack.getCount();
@@ -296,6 +300,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         }
         if (diamonds > 0) {
             effects.add(colored("gui.super_snowmen.effects.projectile_damage", 0x55DDE0, diamonds));
+            effects.add(colored("gui.super_snowmen.effects.protection", 0x7FC8E8, diamonds));
         }
 
         SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(upgrades);
@@ -333,6 +338,13 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.EGG)) {
             effects.add(colored("gui.super_snowmen.effects.cluck", 0xF2D16B));
             effects.add(colored("gui.super_snowmen.effects.slow_falling", 0xD7F0FF));
+        }
+        if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.LIGHTNING_ROD)
+                && !upgrades.findPreferredTrident().isEmpty()) {
+            effects.add(colored("gui.super_snowmen.effects.extra_trident", 0xC98232));
+            if (upgrades.hasChannelingTrident()) {
+                effects.add(colored("gui.super_snowmen.effects.weatherproof_channeling", 0xF2D15C));
+            }
         }
         if (!effects.isEmpty()) {
             effects.add(0, colored("gui.super_snowmen.effects.super_snowman", 0x7AD7F0));

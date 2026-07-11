@@ -18,7 +18,8 @@ public enum SnowmanUpgradeType {
     SPLASH_POTION(Items.SPLASH_POTION, 0xB681FF),
     EGG(Items.EGG, 0xF6E8B8),
     TRIDENT(Items.TRIDENT, 0x55B7B0),
-    SHULKER_SHELL(Items.SHULKER_SHELL, 0xB66DCC);
+    SHULKER_SHELL(Items.SHULKER_SHELL, 0xB66DCC),
+    LIGHTNING_ROD(Items.LIGHTNING_ROD, 0xC98232);
 
     private final Item item;
     private final int color;

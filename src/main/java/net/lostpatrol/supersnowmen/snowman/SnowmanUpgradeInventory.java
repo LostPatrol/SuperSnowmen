@@ -5,6 +5,8 @@ import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraftforge.items.ItemStackHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -66,7 +68,12 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
             return item == Items.DIAMOND;
         }
         if (isPluginSlot(slot)) {
-            return SnowmanUpgradeType.byItem(item) != null;
+            SnowmanUpgradeType type = SnowmanUpgradeType.byItem(item);
+            if (type == SnowmanUpgradeType.LIGHTNING_ROD) {
+                return getStackInSlot(slot).is(Items.LIGHTNING_ROD)
+                        || !hasProjectileUpgrade(SnowmanUpgradeType.LIGHTNING_ROD);
+            }
+            return type != null;
         }
         if (isSpecialSlot(slot)) {
             return item == Items.ICE || item == Items.PACKED_ICE || item == Items.BLUE_ICE;
@@ -89,6 +96,29 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
             }
         }
         return false;
+    }
+
+    public ItemStack findPreferredTrident() {
+        ItemStack first = ItemStack.EMPTY;
+        for (int slot = PLUGIN_START; slot < PLUGIN_START + PLUGIN_COUNT; slot++) {
+            ItemStack stack = getStackInSlot(slot);
+            if (!stack.is(Items.TRIDENT)) {
+                continue;
+            }
+            if (EnchantmentHelper.getItemEnchantmentLevel(Enchantments.CHANNELING, stack) > 0) {
+                return stack;
+            }
+            if (first.isEmpty()) {
+                first = stack;
+            }
+        }
+        return first;
+    }
+
+    public boolean hasChannelingTrident() {
+        ItemStack trident = findPreferredTrident();
+        return !trident.isEmpty()
+                && EnchantmentHelper.getItemEnchantmentLevel(Enchantments.CHANNELING, trident) > 0;
     }
 
     public boolean areAllPluginSlotsFilled() {
