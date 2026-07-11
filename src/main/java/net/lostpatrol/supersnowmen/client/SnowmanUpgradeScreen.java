@@ -177,6 +177,9 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             return null;
         }
         ItemStack stack = hoveredSlot.getItem();
+        if (stack.isEmpty()) {
+            return "gui.super_snowmen.hint.ice_generic";
+        }
         if (stack.is(net.minecraft.world.item.Items.PACKED_ICE)) {
             return "gui.super_snowmen.hint.packed_ice";
         }
@@ -252,12 +255,38 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         if (effects.isEmpty()) {
             effects = List.of(colored("gui.super_snowmen.effects.none", 0xAAB4C2));
         }
-        graphics.renderTooltip(font, effects, Optional.empty(), mouseX, mouseY);
+        int contentWidth = effects.stream().mapToInt(font::width).max().orElse(0);
+        int tooltipWidth = contentWidth + 8;
+        int tooltipHeight = effects.size() * 10 + 6;
+        int x = mouseX + 12;
+        if (x + tooltipWidth > width - 4) {
+            x = mouseX - tooltipWidth - 12;
+        }
+        x = Math.max(4, Math.min(x, width - tooltipWidth - 4));
+        int y = Math.max(4, Math.min(mouseY - 12, height - tooltipHeight - 4));
+        graphics.fill(x, y, x + tooltipWidth, y + tooltipHeight, BORDER);
+        graphics.fill(x + 1, y + 1, x + tooltipWidth - 1, y + tooltipHeight - 1, 0xF02E3440);
+        for (int line = 0; line < effects.size(); line++) {
+            graphics.drawString(font, effects.get(line), x + 4, y + 4 + line * 10, TEXT, false);
+        }
     }
 
     private List<Component> getActiveEffects() {
         List<Component> effects = new ArrayList<>();
         var upgrades = menu.upgrades();
+        int setBonusLevel = upgrades.areAllPluginSlotsFilled()
+                ? upgrades.areAllAttributeSlotsActive() ? 2 : 1
+                : 0;
+        if (setBonusLevel > 0) {
+            effects.add(colored("gui.super_snowmen.effects.super_snowman", 0x7AD7F0));
+            effects.add(colored("gui.super_snowmen.effects.current", 0xC8D2DC));
+            effects.add(colored(setBonusLevel == 2
+                    ? "gui.super_snowmen.effects.regeneration_ii"
+                    : "gui.super_snowmen.effects.regeneration_i", 0xCD5CAB));
+            effects.add(colored(setBonusLevel == 2
+                    ? "gui.super_snowmen.effects.resistance_ii"
+                    : "gui.super_snowmen.effects.resistance_i", 0x8A9BA8));
+        }
         int pumpkins = upgrades.getStackInSlot(SnowmanUpgradeInventory.BASE_PUMPKIN_SLOT).getCount();
         int snowBlocks = upgrades.getStackInSlot(SnowmanUpgradeInventory.BASE_SNOW_SLOT).getCount();
         int diamonds = upgrades.getStackInSlot(SnowmanUpgradeInventory.BASE_DIAMOND_SLOT).getCount();
@@ -306,11 +335,6 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.EGG)) {
             effects.add(colored("gui.super_snowmen.effects.cluck", 0xF2D16B));
             effects.add(colored("gui.super_snowmen.effects.slow_falling", 0xD7F0FF));
-        }
-        if (upgrades.areAllPluginSlotsFilled() && upgrades.areAllAttributeSlotsActive()) {
-            effects.add(colored("gui.super_snowmen.effects.super_snowman", 0x7AD7F0));
-        } else if (upgrades.areAllPluginSlotsFilled()) {
-            effects.add(colored("gui.super_snowmen.effects.triumphant", 0xD8B04C));
         }
         return effects;
     }
