@@ -57,6 +57,12 @@ import java.util.Map;
 public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
     private static final String WITHER_COUNTER_TAG = "SuperSnowmenWitherCounter";
+    private static final DyeColor[] FIREWORK_COLORS = {
+            DyeColor.WHITE, DyeColor.ORANGE, DyeColor.MAGENTA, DyeColor.LIGHT_BLUE,
+            DyeColor.YELLOW, DyeColor.LIME, DyeColor.PINK, DyeColor.GRAY,
+            DyeColor.LIGHT_GRAY, DyeColor.CYAN, DyeColor.PURPLE, DyeColor.BLUE,
+            DyeColor.GREEN, DyeColor.RED
+    };
 
     private ProjectileReplacement() {
     }
@@ -218,31 +224,63 @@ public final class ProjectileReplacement {
     }
 
     private static void randomizeFireworkExplosion(CompoundTag explosion, RandomSource random) {
-        FireworkRocketItem.Shape shape = switch (random.nextInt(3)) {
-            case 1 -> FireworkRocketItem.Shape.STAR;
-            case 2 -> FireworkRocketItem.Shape.BURST;
-            default -> FireworkRocketItem.Shape.LARGE_BALL;
+        FireworkRocketItem.Shape shape = switch (random.nextInt(5)) {
+            case 1 -> FireworkRocketItem.Shape.LARGE_BALL;
+            case 2 -> FireworkRocketItem.Shape.STAR;
+            case 3 -> FireworkRocketItem.Shape.CREEPER;
+            case 4 -> FireworkRocketItem.Shape.BURST;
+            default -> FireworkRocketItem.Shape.SMALL_BALL;
         };
         shape.save(explosion);
-        explosion.putIntArray("Colors", randomFireworkColors(random, 1 + random.nextInt(3)));
-        explosion.putIntArray("FadeColors", randomFireworkColors(random, random.nextInt(3)));
-        explosion.putBoolean("Trail", random.nextBoolean());
-        explosion.putBoolean("Flicker", random.nextBoolean());
+        explosion.putIntArray("Colors", randomPrimaryFireworkColors(random));
+        explosion.putIntArray("FadeColors", randomFadeFireworkColors(random));
+
+        int effectRoll = random.nextInt(100);
+        explosion.putBoolean("Trail", effectRoll >= 60);
+        explosion.putBoolean("Flicker", (effectRoll >= 50 && effectRoll < 60) || effectRoll >= 85);
     }
 
-    private static int[] randomFireworkColors(RandomSource random, int count) {
-        DyeColor[] dyeColors = DyeColor.values();
-        boolean[] selected = new boolean[dyeColors.length];
+    private static int[] randomPrimaryFireworkColors(RandomSource random) {
+        int count = random.nextInt(3);
+        if (count == 0) {
+            return new int[]{DyeColor.WHITE.getFireworkColor()};
+        }
+        boolean[] selected = new boolean[FIREWORK_COLORS.length];
         int[] colors = new int[count];
         for (int i = 0; i < count; i++) {
-            int index;
-            do {
-                index = random.nextInt(dyeColors.length);
-            } while (selected[index]);
+            int index = randomWeightedPrimaryColor(random, selected);
             selected[index] = true;
-            colors[i] = dyeColors[index].getFireworkColor();
+            colors[i] = FIREWORK_COLORS[index].getFireworkColor();
         }
         return colors;
+    }
+
+    private static int randomWeightedPrimaryColor(RandomSource random, boolean[] selected) {
+        int totalWeight = 0;
+        for (int i = 0; i < FIREWORK_COLORS.length; i++) {
+            if (!selected[i]) {
+                totalWeight += FIREWORK_COLORS[i] == DyeColor.WHITE ? 3 : 1;
+            }
+        }
+        int roll = random.nextInt(totalWeight);
+        for (int i = 0; i < FIREWORK_COLORS.length; i++) {
+            if (selected[i]) {
+                continue;
+            }
+            roll -= FIREWORK_COLORS[i] == DyeColor.WHITE ? 3 : 1;
+            if (roll < 0) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private static int[] randomFadeFireworkColors(RandomSource random) {
+        if (!random.nextBoolean()) {
+            return new int[0];
+        }
+        DyeColor color = FIREWORK_COLORS[random.nextInt(FIREWORK_COLORS.length)];
+        return new int[]{color.getFireworkColor()};
     }
 
     private static ThrownTrident createTrident(ItemStack source, SnowGolem owner) {
