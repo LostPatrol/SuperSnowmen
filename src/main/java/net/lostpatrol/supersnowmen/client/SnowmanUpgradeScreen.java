@@ -383,7 +383,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
     private Component rainbow(String key) {
         String text = Component.translatable(key).getString();
         MutableComponent result = Component.empty();
-        float animationPhase = (Util.getMillis() % 4000L) / 4000.0F;
+        float animationPhase = (Util.getMillis() % 3000L) / 3000.0F;
         for (int index = 0; index < text.length(); index++) {
             float characterPhase = index / (float)Math.max(1, text.length());
             int color = Mth.hsvToRgb((animationPhase + characterPhase) % 1.0F, 0.8F, 1.0F);
