@@ -331,8 +331,10 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         if (tier.toughness > 0.0D) {
             effects.add(colored("gui.super_snowmen.effects.toughness", 0xFFFFFF, (int)tier.toughness));
         }
-        if (!upgrades.findCrossbow().isEmpty()
-                && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)) {
+        ItemStack crossbow = upgrades.findCrossbow();
+        if (!crossbow.isEmpty()
+                && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)
+                && EnchantmentHelper.getItemEnchantmentLevel(Enchantments.MULTISHOT, crossbow) > 0) {
             effects.add(rainbow("gui.super_snowmen.effects.firework_party"));
         }
         if (tier.climateImmune) {
