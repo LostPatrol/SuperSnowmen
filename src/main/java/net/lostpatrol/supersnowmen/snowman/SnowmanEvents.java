@@ -9,57 +9,35 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
-import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.RangedAttackGoal;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.NetworkHooks;
 
 public final class SnowmanEvents {
     private SnowmanEvents() {
     }
 
-    @SubscribeEvent
     public static void attachCapabilities(AttachCapabilitiesEvent<Entity> event) {
         if (event.getObject() instanceof SnowGolem snowman) {
             event.addCapability(SnowmanUpgradeProvider.ID, new SnowmanUpgradeProvider(snowman));
         }
     }
 
-    @SubscribeEvent
-    public static void onInteract(PlayerInteractEvent.EntityInteractSpecific event) {
+    public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         handleSnowmanInteract(event, event.getTarget());
     }
 
-    @SubscribeEvent
-    public static void onInteract(PlayerInteractEvent.EntityInteract event) {
+    public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         handleSnowmanInteract(event, event.getTarget());
-    }
-
-    @SubscribeEvent
-    public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
-        if (!event.getItemStack().is(Items.GLASS_BOTTLE)) {
-            return;
-        }
-        boolean blockedCloudNearby = !event.getLevel().getEntitiesOfClass(
-                AreaEffectCloud.class,
-                event.getEntity().getBoundingBox().inflate(2.0D),
-                cloud -> cloud.isAlive() && cloud.getPersistentData().getBoolean(ProjectileReplacement.NO_BOTTLE_DRAGON_BREATH_TAG)
-        ).isEmpty();
-        if (blockedCloudNearby) {
-            event.setCanceled(true);
-            event.setCancellationResult(InteractionResult.sidedSuccess(event.getLevel().isClientSide));
-        }
     }
 
     private static void handleSnowmanInteract(PlayerInteractEvent event, Entity target) {
@@ -67,12 +45,12 @@ public final class SnowmanEvents {
             return;
         }
         Player player = event.getEntity();
-        event.setCanceled(true);
-        event.setCancellationResult(InteractionResult.sidedSuccess(player.level().isClientSide));
         if (player.level().isClientSide || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
 
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
             if (player.isShiftKeyDown()) {
                 withdrawAll(serverPlayer, inventory);
@@ -90,18 +68,14 @@ public final class SnowmanEvents {
         });
     }
 
-    @SubscribeEvent
     public static void onEntityJoinLevel(EntityJoinLevelEvent event) {
         if (event.getEntity() instanceof SnowGolem snowman) {
             installAttackGoal(snowman);
             SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> SnowmanUpgradeEffects.apply(snowman, inventory));
-        } else if (event.getEntity() instanceof AreaEffectCloud cloud) {
-            ProjectileReplacement.tagDragonBreathCloud(cloud);
         }
         ProjectileReplacement.replaceSnowball(event);
     }
 
-    @SubscribeEvent
     public static void onLivingDamage(LivingDamageEvent event) {
         if (!(event.getEntity() instanceof SnowGolem snowman)) {
             return;
@@ -117,7 +91,6 @@ public final class SnowmanEvents {
         });
     }
 
-    @SubscribeEvent
     public static void onExplosionDetonate(ExplosionEvent.Detonate event) {
         Entity directSource = event.getExplosion().getDirectSourceEntity();
         if (directSource != null && directSource.getPersistentData().getBoolean(ProjectileReplacement.NO_BLOCK_DAMAGE_TAG)) {
@@ -125,7 +98,6 @@ public final class SnowmanEvents {
         }
     }
 
-    @SubscribeEvent
     public static void registerCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("supersnowmen")
                 .requires(source -> source.hasPermission(2))

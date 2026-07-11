@@ -6,6 +6,7 @@ import net.lostpatrol.supersnowmen.menu.SuperSnowmenMenus;
 import net.lostpatrol.supersnowmen.snowman.SnowmanEvents;
 import net.lostpatrol.supersnowmen.snowman.SnowmanModEvents;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraft.world.entity.Entity;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -21,6 +22,14 @@ public class SuperSnowmen {
         SuperSnowmenMenus.MENUS.register(modBus);
         modBus.addListener(SnowmanModEvents::registerCapabilities);
         context.registerConfig(ModConfig.Type.SERVER, SuperSnowmenConfig.SPEC);
-        MinecraftForge.EVENT_BUS.register(SnowmanEvents.class);
+
+        var forgeBus = MinecraftForge.EVENT_BUS;
+        forgeBus.addGenericListener(Entity.class, SnowmanEvents::attachCapabilities);
+        forgeBus.addListener(SnowmanEvents::onEntityInteract);
+        forgeBus.addListener(SnowmanEvents::onEntityInteractSpecific);
+        forgeBus.addListener(SnowmanEvents::onEntityJoinLevel);
+        forgeBus.addListener(SnowmanEvents::onLivingDamage);
+        forgeBus.addListener(SnowmanEvents::onExplosionDetonate);
+        forgeBus.addListener(SnowmanEvents::registerCommands);
     }
 }

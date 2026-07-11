@@ -9,7 +9,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.SnowGolem;
@@ -40,7 +39,6 @@ import java.util.List;
 
 public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
-    public static final String NO_BOTTLE_DRAGON_BREATH_TAG = "SuperSnowmenNoBottleDragonBreath";
     private static final String WITHER_COUNTER_TAG = "SuperSnowmenWitherCounter";
 
     private ProjectileReplacement() {
@@ -133,7 +131,6 @@ public final class ProjectileReplacement {
 
     private static Entity createDragonFireball(Snowball snowball, SnowGolem owner, Vec3 direction, Vec3 velocity) {
         DragonFireball fireball = new DragonFireball(owner.level(), owner, direction.x, direction.y, direction.z);
-        fireball.getPersistentData().putBoolean(NO_BOTTLE_DRAGON_BREATH_TAG, true);
         return copyMotion(fireball, snowball, velocity);
     }
 
@@ -221,13 +218,6 @@ public final class ProjectileReplacement {
         if (SuperSnowmenConfig.consumeProjectileItems || (potionLike && SuperSnowmenConfig.consumePotionProjectiles)) {
             inventory.extractItem(selected.slot, 1, false);
         }
-    }
-
-    public static void tagDragonBreathCloud(AreaEffectCloud cloud) {
-        if (!(cloud.getOwner() instanceof SnowGolem)) {
-            return;
-        }
-        cloud.getPersistentData().putBoolean(NO_BOTTLE_DRAGON_BREATH_TAG, true);
     }
 
     private record SelectedUpgrade(int slot, SnowmanUpgradeType type, ItemStack stack) {
