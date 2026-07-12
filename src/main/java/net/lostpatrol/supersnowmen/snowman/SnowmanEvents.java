@@ -18,23 +18,31 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.CombatRules;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TraceableEntity;
 import net.minecraft.world.entity.ai.goal.RangedAttackGoal;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -54,6 +62,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -184,11 +193,28 @@ public final class SnowmanEvents {
         });
     }
 
-    // Forge 1.20.1 Applicable has no effect source; strip snow-golem effects after add.
+    // Forge posts Added before put/update; restore previous effect after addEffect returns.
     public static void onMobEffectAdded(MobEffectEvent.Added event) {
-        if (event.getEntity() instanceof Player player && isSnowGolemAttacker(event.getEffectSource())) {
-            player.removeEffect(event.getEffectInstance().getEffect());
+        if (!(event.getEntity() instanceof Player player)
+                || player.level().isClientSide()
+                || !isSnowGolemAttacker(event.getEffectSource())
+                || player.getServer() == null) {
+            return;
         }
+        MobEffect type = event.getEffectInstance().getEffect();
+        MobEffectInstance previous = event.getOldEffectInstance();
+        MobEffectInstance restore = previous == null ? null : new MobEffectInstance(previous);
+        player.getServer().execute(() -> {
+            if (!player.isAlive()) {
+                return;
+            }
+            if (restore == null) {
+                player.removeEffect(type);
+            } else {
+                player.removeEffect(type);
+                player.addEffect(restore);
+            }
+        });
     }
 
     public static void onLivingHurt(LivingHurtEvent event) {
@@ -225,6 +251,9 @@ public final class SnowmanEvents {
     }
 
     public static void onProjectileImpact(ProjectileImpactEvent event) {
+        if (handleSnowmanPotionImpact(event)) {
+            return;
+        }
         if (!(event.getProjectile() instanceof ThrownTrident trident)
                 || !trident.getPersistentData().getBoolean(ProjectileReplacement.WEATHERPROOF_CHANNELING_TAG)
                 || !(event.getRayTraceResult() instanceof EntityHitResult entityHit)
@@ -242,6 +271,80 @@ public final class SnowmanEvents {
             lightning.getPersistentData().putBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG, true);
             serverLevel.addFreshEntity(lightning);
             trident.getPersistentData().remove(ProjectileReplacement.WEATHERPROOF_CHANNELING_TAG);
+        }
+    }
+
+    // Non-DEFAULT impact skips onHit; re-splash only non-players then discard.
+    private static boolean handleSnowmanPotionImpact(ProjectileImpactEvent event) {
+        if (!(event.getProjectile() instanceof ThrownPotion potion)
+                || potion.level().isClientSide()
+                || !(potion.getOwner() instanceof SnowGolem)
+                || event.getRayTraceResult().getType() == HitResult.Type.MISS) {
+            return false;
+        }
+        event.setImpactResult(ProjectileImpactEvent.ImpactResult.STOP_AT_CURRENT_NO_DAMAGE);
+
+        ItemStack stack = potion.getItem();
+        Potion potionType = PotionUtils.getPotion(stack);
+        List<MobEffectInstance> effects = PotionUtils.getMobEffects(stack);
+        boolean water = potionType == Potions.WATER && effects.isEmpty();
+        if (water) {
+            applyWaterSplash(potion);
+        } else if (!effects.isEmpty()) {
+            Entity directHit = event.getRayTraceResult().getType() == HitResult.Type.ENTITY
+                    ? ((EntityHitResult) event.getRayTraceResult()).getEntity()
+                    : null;
+            applySplashExcludingPlayers(potion, effects, directHit);
+        }
+        int particles = potionType.hasInstantEffects() ? 2007 : 2002;
+        potion.level().levelEvent(particles, potion.blockPosition(), PotionUtils.getColor(stack));
+        potion.discard();
+        return true;
+    }
+
+    private static void applyWaterSplash(ThrownPotion potion) {
+        AABB area = potion.getBoundingBox().inflate(4.0D, 2.0D, 4.0D);
+        for (LivingEntity living : potion.level().getEntitiesOfClass(LivingEntity.class, area,
+                entity -> !(entity instanceof Player)
+                        && (entity.isSensitiveToWater() || entity.isOnFire()))) {
+            if (potion.distanceToSqr(living) >= 16.0D) {
+                continue;
+            }
+            if (living.isSensitiveToWater()) {
+                living.hurt(potion.damageSources().indirectMagic(potion, potion.getOwner()), 1.0F);
+            }
+            if (living.isOnFire() && living.isAlive()) {
+                living.extinguishFire();
+            }
+        }
+    }
+
+    private static void applySplashExcludingPlayers(ThrownPotion potion, List<MobEffectInstance> effects,
+                                                    @Nullable Entity directHit) {
+        AABB area = potion.getBoundingBox().inflate(4.0D, 2.0D, 4.0D);
+        Entity effectSource = potion.getEffectSource();
+        for (LivingEntity living : potion.level().getEntitiesOfClass(LivingEntity.class, area)) {
+            if (living instanceof Player || !living.isAffectedByPotions()) {
+                continue;
+            }
+            double distanceSqr = potion.distanceToSqr(living);
+            if (distanceSqr >= 16.0D) {
+                continue;
+            }
+            double intensity = living == directHit ? 1.0D : 1.0D - Math.sqrt(distanceSqr) / 4.0D;
+            for (MobEffectInstance effect : effects) {
+                MobEffect type = effect.getEffect();
+                if (type.isInstantenous()) {
+                    type.applyInstantenousEffect(potion, potion.getOwner(), living, effect.getAmplifier(), intensity);
+                } else {
+                    int duration = effect.mapDuration(base -> (int) (intensity * (double) base + 0.5D));
+                    MobEffectInstance scaled = new MobEffectInstance(
+                            type, duration, effect.getAmplifier(), effect.isAmbient(), effect.isVisible());
+                    if (!scaled.endsWithin(20)) {
+                        living.addEffect(scaled, effectSource);
+                    }
+                }
+            }
         }
     }
 
