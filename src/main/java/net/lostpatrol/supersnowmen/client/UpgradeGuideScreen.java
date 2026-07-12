@@ -2,6 +2,7 @@ package net.lostpatrol.supersnowmen.client;
 
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeType;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -43,7 +44,7 @@ public class UpgradeGuideScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        renderTransparentBackground(graphics);
         graphics.fill(panelLeft, panelTop, panelLeft + panelWidth, panelTop + panelHeight, PANEL);
         graphics.fill(panelLeft, panelTop, panelLeft + panelWidth, panelTop + 1, BORDER);
         graphics.fill(panelLeft, panelTop + panelHeight - 1, panelLeft + panelWidth, panelTop + panelHeight, BORDER);
@@ -86,7 +87,9 @@ public class UpgradeGuideScreen extends Screen {
             graphics.fill(trackX, listTop, trackX + 2, listBottom, 0xFF2E3440);
             graphics.fill(trackX, thumbY, trackX + 2, thumbY + thumbHeight, BORDER);
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
+        for (Renderable renderable : renderables) {
+            renderable.render(graphics, mouseX, mouseY, partialTick);
+        }
     }
 
     @Override
