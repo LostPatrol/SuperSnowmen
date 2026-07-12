@@ -3,7 +3,7 @@ package net.lostpatrol.supersnowmen.client;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.alchemy.Potions;
 
 import java.util.Arrays;
@@ -24,11 +24,10 @@ public final class UpgradeDisplay {
     }
 
     public static ItemStack representativeStack(SnowmanUpgradeType type) {
-        ItemStack stack = new ItemStack(type.item());
         if (type == SnowmanUpgradeType.TIPPED_ARROW || type == SnowmanUpgradeType.POTION) {
-            PotionUtils.setPotion(stack, Potions.STRONG_HEALING);
+            return PotionContents.createItemStack(type.item(), Potions.STRONG_HEALING);
         }
-        return stack;
+        return new ItemStack(type.item());
     }
 
     public static Component displayName(SnowmanUpgradeType type) {

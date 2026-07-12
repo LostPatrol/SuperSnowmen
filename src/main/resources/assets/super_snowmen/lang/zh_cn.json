@@ -79,6 +79,7 @@
   "gui.super_snowmen.projectile.shulker_shell": "潜影贝飞弹",
   "gui.super_snowmen.projectile.bow": "箭",
   "gui.super_snowmen.projectile.crossbow": "烟花弩箭",
+  "gui.super_snowmen.projectile.wind_charge": "风弹",
   "gui.super_snowmen.projectile.snowball": "雪球",
   "commands.super_snowmen.enable": "Super Snowmen 升级启用: %s",
   "commands.super_snowmen.consume_projectiles": "消耗发射物插件物品: %s",

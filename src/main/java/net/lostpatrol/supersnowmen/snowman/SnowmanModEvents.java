@@ -1,12 +1,15 @@
 package net.lostpatrol.supersnowmen.snowman;
 
-import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraft.world.entity.EntityType;
 
 public final class SnowmanModEvents {
     private SnowmanModEvents() {
     }
 
     public static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.register(SnowmanUpgradeInventory.class);
+        event.registerEntity(Capabilities.ItemHandler.ENTITY, EntityType.SNOW_GOLEM,
+                (snowman, context) -> snowman.getData(SnowmanUpgradeCapabilities.UPGRADES));
     }
 }

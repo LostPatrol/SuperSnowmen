@@ -5,6 +5,7 @@ import net.lostpatrol.supersnowmen.menu.SnowmanUpgradeMenu;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeInventory;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeEffects;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeType;
+import net.lostpatrol.supersnowmen.snowman.UpgradeEnchantments;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
@@ -70,7 +71,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics);
+        renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         if (!renderUpgradeSlotTooltip(graphics, mouseX, mouseY)) {
             renderTooltip(graphics, mouseX, mouseY);
@@ -327,15 +328,15 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         if (!bow.isEmpty()) {
             int bowColor = SnowmanUpgradeType.BOW.color();
             effects.add(colored("gui.super_snowmen.effects.archery", bowColor));
-            addBowEnchantment(effects, bow, Enchantments.FLAMING_ARROWS, bowColor);
-            addBowEnchantment(effects, bow, Enchantments.POWER_ARROWS, bowColor);
-            addBowEnchantment(effects, bow, Enchantments.PUNCH_ARROWS, bowColor);
+            addBowEnchantment(effects, bow, Enchantments.FLAME, bowColor);
+            addBowEnchantment(effects, bow, Enchantments.POWER, bowColor);
+            addBowEnchantment(effects, bow, Enchantments.PUNCH, bowColor);
             effects.add(colored("gui.super_snowmen.effects.extra_arrow", bowColor));
         }
         ItemStack crossbow = upgrades.findCrossbow();
         if (!crossbow.isEmpty() && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)) {
             effects.add(rainbow("gui.super_snowmen.effects.extra_firework_bolt"));
-            if (EnchantmentHelper.getItemEnchantmentLevel(Enchantments.MULTISHOT, crossbow) > 0) {
+            if (UpgradeEnchantments.level(crossbow, Enchantments.MULTISHOT) > 0) {
                 effects.add(rainbow("gui.super_snowmen.effects.firework_party"));
             }
         }
@@ -396,16 +397,11 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         return result;
     }
 
-    private void addBowEnchantment(List<Component> effects, ItemStack bow, Enchantment enchantment, int color) {
-        int level = EnchantmentHelper.getItemEnchantmentLevel(enchantment, bow);
-        if (level <= 0) {
-            return;
-        }
-        Component name = Component.translatable(enchantment.getDescriptionId());
-        if (enchantment.getMaxLevel() > 1) {
-            name = name.copy().append(" ").append(romanLevel(level));
-        }
-        effects.add(name.copy().withStyle(style -> style.withColor(color)));
+    private void addBowEnchantment(List<Component> effects, ItemStack bow, net.minecraft.resources.ResourceKey<Enchantment> enchantment, int color) {
+        int level = UpgradeEnchantments.level(bow, enchantment);
+        UpgradeEnchantments.find(bow, enchantment).ifPresent(holder -> {
+            if (level > 0) effects.add(Enchantment.getFullname(holder, level).copy().withStyle(style -> style.withColor(color)));
+        });
     }
 
     private String romanLevel(int level) {

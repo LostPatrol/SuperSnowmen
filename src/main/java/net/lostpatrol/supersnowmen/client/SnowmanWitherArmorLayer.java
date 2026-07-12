@@ -40,7 +40,6 @@ public class SnowmanWitherArmorLayer extends RenderLayer<SnowGolem, SnowGolemMod
                 age * 0.01F % 1.0F
         ));
         model.setupAnim(snowGolem, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
-        model.renderToBuffer(poseStack, consumer, packedLight, OverlayTexture.NO_OVERLAY,
-                0.5F, 0.5F, 0.5F, 1.0F);
+        model.renderToBuffer(poseStack, consumer, packedLight, OverlayTexture.NO_OVERLAY, 0xFF7F7F7F);
     }
 }

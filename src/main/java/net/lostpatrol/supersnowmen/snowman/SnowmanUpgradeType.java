@@ -21,7 +21,8 @@ public enum SnowmanUpgradeType {
     SHULKER_SHELL(Items.SHULKER_SHELL, 0xB66DCC),
     LIGHTNING_ROD(Items.LIGHTNING_ROD, 0xC98232),
     BOW(Items.BOW, 0xB88955),
-    CROSSBOW(Items.CROSSBOW, 0x8E6A48);
+    CROSSBOW(Items.CROSSBOW, 0x8E6A48),
+    WIND_CHARGE(Items.WIND_CHARGE, 0xBFEFFF);
 
     private final Item item;
     private final int color;

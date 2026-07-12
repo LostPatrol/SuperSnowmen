@@ -1,13 +1,14 @@
 package net.lostpatrol.supersnowmen.snowman;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraftforge.items.ItemStackHandler;
+import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,10 +35,10 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
     }
 
     @Override
-    public void deserializeNBT(CompoundTag nbt) {
+    public void deserializeNBT(HolderLookup.Provider provider, CompoundTag nbt) {
         CompoundTag migrated = nbt.copy();
         migrated.putInt("Size", SLOT_COUNT);
-        super.deserializeNBT(migrated);
+        super.deserializeNBT(provider, migrated);
     }
 
     @Override
@@ -106,7 +107,7 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
             if (!stack.is(Items.TRIDENT)) {
                 continue;
             }
-            if (EnchantmentHelper.getItemEnchantmentLevel(Enchantments.CHANNELING, stack) > 0) {
+            if (UpgradeEnchantments.level(stack, Enchantments.CHANNELING) > 0) {
                 return stack;
             }
             if (first.isEmpty()) {
@@ -137,7 +138,7 @@ public class SnowmanUpgradeInventory extends ItemStackHandler {
     public boolean hasChannelingTrident() {
         ItemStack trident = findPreferredTrident();
         return !trident.isEmpty()
-                && EnchantmentHelper.getItemEnchantmentLevel(Enchantments.CHANNELING, trident) > 0;
+                && UpgradeEnchantments.level(trident, Enchantments.CHANNELING) > 0;
     }
 
     public boolean areAllPluginSlotsFilled() {

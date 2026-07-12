@@ -43,7 +43,7 @@ public class UpgradeGuideScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics);
+        renderBackground(graphics, mouseX, mouseY, partialTick);
         graphics.fill(panelLeft, panelTop, panelLeft + panelWidth, panelTop + panelHeight, PANEL);
         graphics.fill(panelLeft, panelTop, panelLeft + panelWidth, panelTop + 1, BORDER);
         graphics.fill(panelLeft, panelTop + panelHeight - 1, panelLeft + panelWidth, panelTop + panelHeight, BORDER);
@@ -90,10 +90,10 @@ public class UpgradeGuideScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         int listHeight = panelHeight - 54;
         int maxScroll = Math.max(0, UpgradeDisplay.guideTypes().size() * ROW_HEIGHT - listHeight);
-        scrollAmount = Mth.clamp(scrollAmount - delta * 24.0D, 0.0D, maxScroll);
+        scrollAmount = Mth.clamp(scrollAmount - scrollY * 24.0D, 0.0D, maxScroll);
         return true;
     }
 

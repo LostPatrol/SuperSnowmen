@@ -1,6 +1,8 @@
 package net.lostpatrol.supersnowmen.snowman;
 
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.core.Holder;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.SnowGolem;
@@ -73,11 +75,11 @@ public final class SnowmanUpgradeEffects {
         }
     }
 
-    private static void refreshEffect(SnowGolem snowman, net.minecraft.world.effect.MobEffect effect, int duration) {
+    private static void refreshEffect(SnowGolem snowman, Holder<MobEffect> effect, int duration) {
         refreshEffect(snowman, effect, duration, 0);
     }
 
-    private static void refreshEffect(SnowGolem snowman, net.minecraft.world.effect.MobEffect effect,
+    private static void refreshEffect(SnowGolem snowman, Holder<MobEffect> effect,
                                       int duration, int amplifier) {
         MobEffectInstance current = snowman.getEffect(effect);
         if (current == null || current.getAmplifier() < amplifier

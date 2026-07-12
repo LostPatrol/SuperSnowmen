@@ -8,6 +8,7 @@ import net.lostpatrol.supersnowmen.network.SuperSnowmenNetwork;
 import net.lostpatrol.supersnowmen.projectile.ProjectileReplacement;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.ColorParticleOption;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,21 +30,18 @@ import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraftforge.event.AttachCapabilitiesEvent;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.event.entity.EntityJoinLevelEvent;
-import net.minecraftforge.event.entity.living.LivingAttackEvent;
-import net.minecraftforge.event.entity.living.LivingDropsEvent;
-import net.minecraftforge.event.entity.living.LivingEvent;
-import net.minecraftforge.event.entity.living.LivingDamageEvent;
-import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.minecraftforge.event.entity.living.MobEffectEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.event.entity.ProjectileImpactEvent;
-import net.minecraftforge.event.level.ExplosionEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.network.NetworkHooks;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.damagesource.CombatRules;
@@ -57,20 +55,11 @@ public final class SnowmanEvents {
     private SnowmanEvents() {
     }
 
-    @SubscribeEvent
-    public static void attachCapabilities(AttachCapabilitiesEvent<Entity> event) {
-        if (event.getObject() instanceof SnowGolem snowman) {
-            SnowmanUpgradeProvider provider = new SnowmanUpgradeProvider(snowman);
-            event.addCapability(SnowmanUpgradeProvider.ID, provider);
-            event.addListener(provider::invalidate);
-        }
-    }
-
     public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         handleSnowmanInteract(event, event.getTarget());
     }
 
-    private static void handleSnowmanInteract(PlayerInteractEvent event, Entity target) {
+    private static void handleSnowmanInteract(PlayerInteractEvent.EntityInteract event, Entity target) {
         if (!SuperSnowmenConfig.enableUpgrades || !(target instanceof SnowGolem snowman)) {
             return;
         }
@@ -112,8 +101,7 @@ public final class SnowmanEvents {
                 return;
             }
 
-            NetworkHooks.openScreen(
-                    player,
+            player.openMenu(
                     new SimpleMenuProvider(
                             (containerId, playerInventory, p) -> new SnowmanUpgradeMenu(containerId, playerInventory, snowman.getId()),
                             Component.translatable("container.super_snowmen.snowman_upgrade")
@@ -131,7 +119,7 @@ public final class SnowmanEvents {
         ProjectileReplacement.replaceSnowball(event);
     }
 
-    public static void onLivingAttack(LivingAttackEvent event) {
+    public static void onLivingAttack(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof SnowGolem snowman)) {
             return;
         }
@@ -166,12 +154,12 @@ public final class SnowmanEvents {
             boolean rejectLevitation = event.getEffectInstance().getEffect() == MobEffects.LEVITATION
                     && inventory.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
             if (rejectWither || rejectLevitation) {
-                event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+                event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
             }
         });
     }
 
-    public static void onLivingHurt(LivingHurtEvent event) {
+    public static void onLivingHurt(LivingIncomingDamageEvent event) {
         if (!(event.getSource().getEntity() instanceof SnowGolem snowman)) {
             return;
         }
@@ -183,7 +171,7 @@ public final class SnowmanEvents {
         });
     }
 
-    public static void onLivingDamage(LivingDamageEvent event) {
+    public static void onLivingDamage(LivingDamageEvent.Pre event) {
         if (!(event.getEntity() instanceof SnowGolem snowman)
                 || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
             return;
@@ -191,7 +179,7 @@ public final class SnowmanEvents {
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
             int diamonds = inventory.getStackInSlot(SnowmanUpgradeInventory.BASE_DIAMOND_SLOT).getCount();
             if (diamonds > 0) {
-                event.setAmount(CombatRules.getDamageAfterMagicAbsorb(event.getAmount(), diamonds));
+                event.setNewDamage(CombatRules.getDamageAfterMagicAbsorb(event.getNewDamage(), diamonds));
             }
         });
     }
@@ -216,7 +204,7 @@ public final class SnowmanEvents {
         }
     }
 
-    public static void onLivingTick(LivingEvent.LivingTickEvent event) {
+    public static void onLivingTick(EntityTickEvent.Post event) {
         if (!(event.getEntity() instanceof SnowGolem snowman)
                 || !(snowman.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
             return;
@@ -238,7 +226,7 @@ public final class SnowmanEvents {
         for (int i = 0; i < 3; i++) {
             if (snowman.getRandom().nextInt(4) == 0) {
                 serverLevel.sendParticles(
-                        ParticleTypes.ENTITY_EFFECT,
+                        ColorParticleOption.create(ParticleTypes.ENTITY_EFFECT, 0.7F, 0.7F, 0.5F),
                         snowman.getX() + snowman.getRandom().nextGaussian() * 0.3D,
                         snowman.getY() + snowman.getRandom().nextDouble() * snowman.getBbHeight(),
                         snowman.getZ() + snowman.getRandom().nextGaussian() * 0.3D,
@@ -276,12 +264,12 @@ public final class SnowmanEvents {
         });
     }
 
-    private static boolean isDragonBreathDamage(LivingAttackEvent event) {
+    private static boolean isDragonBreathDamage(LivingIncomingDamageEvent event) {
         if (event.getSource().is(DamageTypes.DRAGON_BREATH)) {
             return true;
         }
         return event.getSource().getDirectEntity() instanceof AreaEffectCloud cloud
-                && cloud.getParticle() == ParticleTypes.DRAGON_BREATH;
+                && cloud.getParticle().getType() == ParticleTypes.DRAGON_BREATH;
     }
 
     public static void onExplosionDetonate(ExplosionEvent.Detonate event) {

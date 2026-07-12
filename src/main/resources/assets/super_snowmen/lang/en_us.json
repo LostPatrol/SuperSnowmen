@@ -79,6 +79,7 @@
   "gui.super_snowmen.projectile.shulker_shell": "Shulker Bullet",
   "gui.super_snowmen.projectile.bow": "Arrow",
   "gui.super_snowmen.projectile.crossbow": "Firework Bolt",
+  "gui.super_snowmen.projectile.wind_charge": "Wind Charge",
   "gui.super_snowmen.projectile.snowball": "Snowball",
   "commands.super_snowmen.enable": "Super Snowmen upgrades enabled: %s",
   "commands.super_snowmen.consume_projectiles": "Consume projectile plugin items: %s",

@@ -4,11 +4,11 @@ import net.lostpatrol.supersnowmen.config.SuperSnowmenConfig;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeAccess;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeInventory;
 import net.lostpatrol.supersnowmen.snowman.SnowmanUpgradeType;
+import net.lostpatrol.supersnowmen.snowman.UpgradeEnchantments;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -16,6 +16,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.SnowGolem;
@@ -35,24 +36,23 @@ import net.minecraft.world.entity.projectile.ThrownEgg;
 import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.entity.projectile.WitherSkull;
+import net.minecraft.world.entity.projectile.windcharge.WindCharge;
 import net.minecraft.world.item.DyeColor;
-import net.minecraft.world.item.FireworkRocketItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.alchemy.PotionUtils;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.FireworkExplosion;
+import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
@@ -164,8 +164,8 @@ public final class ProjectileReplacement {
         Vec3 direction = velocity.lengthSqr() > 0.0001D ? velocity.normalize() : owner.getLookAngle();
         Vec3 directDirection = directionToTarget(snowball, owner.getTarget(), direction);
         return switch (selected.type) {
-            case ARROW -> shootSelectedArrow(new Arrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
-            case SPECTRAL_ARROW -> shootSelectedArrow(new SpectralArrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
+            case ARROW -> shootSelectedArrow(new Arrow(owner.level(), owner, new ItemStack(Items.ARROW), weapon(selected.bow)), snowball, owner, velocity, selected.bow);
+            case SPECTRAL_ARROW -> shootSelectedArrow(new SpectralArrow(owner.level(), owner, new ItemStack(Items.SPECTRAL_ARROW), weapon(selected.bow)), snowball, owner, velocity, selected.bow);
             case FIRE_CHARGE -> createSmallFireball(snowball, owner, directDirection);
             case FIREWORK_ROCKET -> createFireworkRocket(selected.stack, selected.crossbow, snowball, owner,
                     directDirection, velocity.length());
@@ -186,9 +186,14 @@ public final class ProjectileReplacement {
             case TRIDENT -> shootArrow(createTrident(selected.stack, owner), snowball, velocity);
             case SHULKER_SHELL -> createShulkerBullet(owner);
             case LIGHTNING_ROD -> null;
-            case BOW -> shootBowArrow(new Arrow(owner.level(), owner), snowball, owner, velocity, selected.bow);
+            case BOW -> shootBowArrow(new Arrow(owner.level(), owner, new ItemStack(Items.ARROW), selected.bow), snowball, owner, velocity, selected.bow);
             case CROSSBOW -> null;
+            case WIND_CHARGE -> createWindCharge(snowball, owner, directDirection);
         };
+    }
+
+    private static ItemStack weapon(ItemStack bow) {
+        return bow.isEmpty() ? null : bow;
     }
 
     private static boolean isArrowType(SnowmanUpgradeType type) {
@@ -231,17 +236,6 @@ public final class ProjectileReplacement {
                     (float)FULL_DRAW_ARROW_SPEED, 0.0F);
         }
         arrow.setCritArrow(true);
-        int power = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.POWER_ARROWS, bow);
-        if (power > 0) {
-            arrow.setBaseDamage(arrow.getBaseDamage() + power * 0.5D + 0.5D);
-        }
-        int punch = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.PUNCH_ARROWS, bow);
-        if (punch > 0) {
-            arrow.setKnockback(punch);
-        }
-        if (EnchantmentHelper.getItemEnchantmentLevel(Enchantments.FLAMING_ARROWS, bow) > 0) {
-            arrow.setSecondsOnFire(100);
-        }
         arrow.pickup = AbstractArrow.Pickup.DISALLOWED;
         return arrow;
     }
@@ -363,35 +357,40 @@ public final class ProjectileReplacement {
                     owner.getRandom().triangle(target.getZ() - owner.getZ(), 2.297D * spread)
             );
         }
-        SmallFireball fireball = new SmallFireball(owner.level(), owner, aim.x, aim.y, aim.z);
+        SmallFireball fireball = new SmallFireball(owner.level(), owner, aim);
         fireball.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
         return fireball;
     }
 
     private static Entity createDragonFireball(Snowball snowball, SnowGolem owner, Vec3 direction) {
-        DragonFireball fireball = new DragonFireball(owner.level(), owner, direction.x, direction.y, direction.z);
+        DragonFireball fireball = new DragonFireball(owner.level(), owner, direction);
         fireball.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
         return fireball;
+    }
+
+    private static Entity createWindCharge(Snowball snowball, SnowGolem owner, Vec3 direction) {
+        WindCharge charge = new WindCharge(EntityType.WIND_CHARGE, owner.level());
+        charge.setOwner(owner);
+        charge.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
+        charge.shoot(direction.x, direction.y, direction.z, 1.5F, 1.0F);
+        return charge;
     }
 
     private static Entity createFireworkRocket(ItemStack source, ItemStack crossbow, Snowball snowball,
                                                SnowGolem owner, Vec3 direction, double speed) {
         ItemStack rocketItem = source.copy();
         rocketItem.setCount(1);
-        CompoundTag fireworks = rocketItem.getOrCreateTagElement("Fireworks");
-        ListTag explosions = fireworks.getList("Explosions", 10);
-        while (explosions.size() < 3) {
-            explosions.add(new CompoundTag());
+        Fireworks sourceFireworks = rocketItem.getOrDefault(DataComponents.FIREWORKS, new Fireworks(1, List.of()));
+        List<FireworkExplosion> explosions = new ArrayList<>();
+        int explosionCount = Math.max(3, sourceFireworks.explosions().size());
+        for (int i = 0; i < explosionCount; i++) {
+            explosions.add(randomizeFireworkExplosion(owner.getRandom()));
         }
-        for (int i = 0; i < explosions.size(); i++) {
-            randomizeFireworkExplosion(explosions.getCompound(i), owner.getRandom());
-        }
-        fireworks.putByte("Flight", (byte)1);
-        fireworks.put("Explosions", explosions);
+        rocketItem.set(DataComponents.FIREWORKS, new Fireworks(1, explosions));
 
         double rocketSpeed = Math.max(1.0D, speed);
         FireworkRocketEntity rocket = createFireworkEntity(rocketItem, snowball, owner, direction, rocketSpeed);
-        if (EnchantmentHelper.getItemEnchantmentLevel(Enchantments.MULTISHOT, crossbow) > 0) {
+        if (UpgradeEnchantments.level(crossbow, Enchantments.MULTISHOT) > 0) {
             owner.level().addFreshEntity(createFireworkEntity(
                     rocketItem, snowball, owner, direction.yRot((float)Math.toRadians(-10.0D)), rocketSpeed));
             owner.level().addFreshEntity(createFireworkEntity(
@@ -409,21 +408,20 @@ public final class ProjectileReplacement {
         return rocket;
     }
 
-    private static void randomizeFireworkExplosion(CompoundTag explosion, RandomSource random) {
-        FireworkRocketItem.Shape shape = switch (random.nextInt(5)) {
-            case 1 -> FireworkRocketItem.Shape.LARGE_BALL;
-            case 2 -> FireworkRocketItem.Shape.STAR;
-            case 3 -> FireworkRocketItem.Shape.CREEPER;
-            case 4 -> FireworkRocketItem.Shape.BURST;
-            default -> FireworkRocketItem.Shape.SMALL_BALL;
+    private static FireworkExplosion randomizeFireworkExplosion(RandomSource random) {
+        FireworkExplosion.Shape shape = switch (random.nextInt(5)) {
+            case 1 -> FireworkExplosion.Shape.LARGE_BALL;
+            case 2 -> FireworkExplosion.Shape.STAR;
+            case 3 -> FireworkExplosion.Shape.CREEPER;
+            case 4 -> FireworkExplosion.Shape.BURST;
+            default -> FireworkExplosion.Shape.SMALL_BALL;
         };
-        shape.save(explosion);
-        explosion.putIntArray("Colors", randomPrimaryFireworkColors(random));
-        explosion.putIntArray("FadeColors", randomFadeFireworkColors(random));
-
         int effectRoll = random.nextInt(100);
-        explosion.putBoolean("Trail", effectRoll >= 70);
-        explosion.putBoolean("Flicker", (effectRoll >= 65 && effectRoll < 70) || effectRoll >= 95);
+        return new FireworkExplosion(shape,
+                new IntArrayList(randomPrimaryFireworkColors(random)),
+                new IntArrayList(randomFadeFireworkColors(random)),
+                effectRoll >= 70,
+                (effectRoll >= 65 && effectRoll < 70) || effectRoll >= 95);
     }
 
     private static int[] randomPrimaryFireworkColors(RandomSource random) {
@@ -472,23 +470,20 @@ public final class ProjectileReplacement {
     private static ThrownTrident createTrident(ItemStack source, SnowGolem owner) {
         ItemStack trident = source.copy();
         trident.setCount(1);
-        Map<Enchantment, Integer> enchantments = new HashMap<>(EnchantmentHelper.getEnchantments(trident));
-        enchantments.remove(Enchantments.LOYALTY);
-        enchantments.remove(Enchantments.RIPTIDE);
-        EnchantmentHelper.setEnchantments(enchantments, trident);
+        UpgradeEnchantments.remove(trident, Enchantments.LOYALTY, Enchantments.RIPTIDE);
         ThrownTrident thrown = new ThrownTrident(owner.level(), owner, trident);
         boolean lightningRodEquipped = SnowmanUpgradeAccess.get(owner)
                 .map(inventory -> inventory.hasProjectileUpgrade(SnowmanUpgradeType.LIGHTNING_ROD))
                 .orElse(false);
         if (lightningRodEquipped
-                && EnchantmentHelper.getItemEnchantmentLevel(Enchantments.CHANNELING, trident) > 0) {
+                && UpgradeEnchantments.level(trident, Enchantments.CHANNELING) > 0) {
             thrown.getPersistentData().putBoolean(WEATHERPROOF_CHANNELING_TAG, true);
         }
         return thrown;
     }
 
     private static Entity createWitherSkull(Snowball snowball, SnowGolem owner, Vec3 fallbackDirection) {
-        WitherSkull skull = new WitherSkull(owner.level(), owner, fallbackDirection.x, fallbackDirection.y, fallbackDirection.z);
+        WitherSkull skull = new WitherSkull(owner.level(), owner, fallbackDirection);
         skull.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
         int counter = owner.getPersistentData().getInt(WITHER_COUNTER_TAG) + 1;
         owner.getPersistentData().putInt(WITHER_COUNTER_TAG, counter);
@@ -498,15 +493,13 @@ public final class ProjectileReplacement {
     }
 
     private static Entity createTippedArrow(ItemStack source, ItemStack bow, Snowball snowball, SnowGolem owner, Vec3 velocity) {
-        Arrow arrow = new Arrow(owner.level(), owner);
-        arrow.setEffectsFromItem(source);
+        Arrow arrow = new Arrow(owner.level(), owner, source.copyWithCount(1), weapon(bow));
         return shootSelectedArrow(arrow, snowball, owner, velocity, bow);
     }
 
     private static Entity createPotion(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 velocity) {
         ItemStack splash = new ItemStack(Items.SPLASH_POTION);
-        PotionUtils.setPotion(splash, PotionUtils.getPotion(source));
-        PotionUtils.setCustomEffects(splash, PotionUtils.getCustomEffects(source));
+        splash.set(DataComponents.POTION_CONTENTS, source.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY));
         ThrownPotion potion = new ThrownPotion(owner.level(), owner);
         potion.setItem(splash);
         return copyMotion(potion, snowball, velocity);
@@ -661,12 +654,13 @@ public final class ProjectileReplacement {
             case TOTEM -> SoundEvents.EVOKER_CAST_SPELL;
             case POTION, SPLASH_POTION -> SoundEvents.WITCH_THROW;
             case EGG -> SoundEvents.EGG_THROW;
-            case TRIDENT -> SoundEvents.TRIDENT_THROW;
+            case TRIDENT -> SoundEvents.TRIDENT_THROW.value();
             case SHULKER_SHELL -> null;
             case FIREWORK_ROCKET -> null;
             case LIGHTNING_ROD -> null;
             case BOW -> null;
             case CROSSBOW -> null;
+            case WIND_CHARGE -> SoundEvents.WIND_CHARGE_THROW;
         };
         if (sound != null) {
             owner.level().playSound(null, owner.blockPosition(), sound, SoundSource.HOSTILE, 1.0F, 1.0F);

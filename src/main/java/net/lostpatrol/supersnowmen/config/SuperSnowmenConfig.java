@@ -1,28 +1,28 @@
 package net.lostpatrol.supersnowmen.config;
 
 import net.lostpatrol.supersnowmen.SuperSnowmen;
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.config.ModConfigEvent;
+import net.neoforged.neoforge.common.ModConfigSpec;
 
-@Mod.EventBusSubscriber(modid = SuperSnowmen.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = SuperSnowmen.MOD_ID)
 public final class SuperSnowmenConfig {
-    private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
+    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
-    private static final ForgeConfigSpec.BooleanValue ENABLE_UPGRADES = BUILDER
+    private static final ModConfigSpec.BooleanValue ENABLE_UPGRADES = BUILDER
             .comment("Enable Super Snowmen upgrades.")
             .define("enableUpgrades", true);
 
-    private static final ForgeConfigSpec.BooleanValue CONSUME_PROJECTILE_ITEMS = BUILDER
+    private static final ModConfigSpec.BooleanValue CONSUME_PROJECTILE_ITEMS = BUILDER
             .comment("Consume one matching upgrade item when a replacement projectile is fired.")
             .define("consumeProjectileItems", false);
 
-    private static final ForgeConfigSpec.BooleanValue CONSUME_POTION_PROJECTILES = BUILDER
+    private static final ModConfigSpec.BooleanValue CONSUME_POTION_PROJECTILES = BUILDER
             .comment("Consume tipped arrows and potions when they are selected as replacement projectiles.")
             .define("consumePotionProjectiles", true);
 
-    public static final ForgeConfigSpec SPEC = BUILDER.build();
+    public static final ModConfigSpec SPEC = BUILDER.build();
 
     public static boolean enableUpgrades = true;
     public static boolean consumeProjectileItems = false;

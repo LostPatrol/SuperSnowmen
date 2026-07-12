@@ -1,23 +1,28 @@
 package net.lostpatrol.supersnowmen.network;
 
+import net.lostpatrol.supersnowmen.SuperSnowmen;
 import net.lostpatrol.supersnowmen.client.ClientPoweredSnowmen;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.util.function.Supplier;
+public record PoweredSnowmanPacket(int entityId, boolean powered) implements CustomPacketPayload {
+    public static final Type<PoweredSnowmanPacket> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(SuperSnowmen.MOD_ID, "powered_snowman"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PoweredSnowmanPacket> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.VAR_INT, PoweredSnowmanPacket::entityId,
+            ByteBufCodecs.BOOL, PoweredSnowmanPacket::powered,
+            PoweredSnowmanPacket::new);
 
-public record PoweredSnowmanPacket(int entityId, boolean powered) {
-    static void encode(PoweredSnowmanPacket packet, FriendlyByteBuf buffer) {
-        buffer.writeVarInt(packet.entityId);
-        buffer.writeBoolean(packet.powered);
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
-    static PoweredSnowmanPacket decode(FriendlyByteBuf buffer) {
-        return new PoweredSnowmanPacket(buffer.readVarInt(), buffer.readBoolean());
-    }
-
-    static void handle(PoweredSnowmanPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
+    static void handle(PoweredSnowmanPacket packet, IPayloadContext context) {
         ClientPoweredSnowmen.update(packet.entityId, packet.powered);
-        contextSupplier.get().setPacketHandled(true);
     }
 }

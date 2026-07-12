@@ -2,17 +2,17 @@ package net.lostpatrol.supersnowmen.menu;
 
 import net.lostpatrol.supersnowmen.SuperSnowmen;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraftforge.common.extensions.IForgeMenuType;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
+import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.core.registries.Registries;
 
 public final class SuperSnowmenMenus {
-    public static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(ForgeRegistries.MENU_TYPES, SuperSnowmen.MOD_ID);
+    public static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, SuperSnowmen.MOD_ID);
 
-    public static final RegistryObject<MenuType<SnowmanUpgradeMenu>> SNOWMAN_UPGRADE = MENUS.register(
+    public static final DeferredHolder<MenuType<?>, MenuType<SnowmanUpgradeMenu>> SNOWMAN_UPGRADE = MENUS.register(
             "snowman_upgrade",
-            () -> IForgeMenuType.create(SnowmanUpgradeMenu::new)
+            () -> IMenuTypeExtension.create(SnowmanUpgradeMenu::new)
     );
 
     private SuperSnowmenMenus() {
