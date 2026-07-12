@@ -11,6 +11,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
@@ -59,6 +60,7 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.Nullable;
 
@@ -68,6 +70,7 @@ import java.util.WeakHashMap;
 
 public final class SnowmanEvents {
     private static final Map<SnowGolem, Boolean> POWERED_STATES = new WeakHashMap<>();
+    private static final Map<AreaEffectCloud, Boolean> SNOWMAN_POTION_CLOUDS = new WeakHashMap<>();
 
     private SnowmanEvents() {
     }
@@ -142,6 +145,11 @@ public final class SnowmanEvents {
         if (event.getEntity() instanceof SnowGolem snowman) {
             installAttackGoal(snowman);
             SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> SnowmanUpgradeEffects.apply(snowman, inventory));
+        }
+        if (!event.getLevel().isClientSide()
+                && event.getEntity() instanceof AreaEffectCloud cloud
+                && cloud.getOwner() instanceof SnowGolem) {
+            SNOWMAN_POTION_CLOUDS.put(cloud, true);
         }
         tagSnowmanChannelingLightning(event);
         ProjectileReplacement.replaceSnowball(event);
@@ -279,6 +287,7 @@ public final class SnowmanEvents {
         if (!(event.getProjectile() instanceof ThrownPotion potion)
                 || potion.level().isClientSide()
                 || !(potion.getOwner() instanceof SnowGolem)
+                || potion.getItem().is(Items.LINGERING_POTION)
                 || event.getRayTraceResult().getType() == HitResult.Type.MISS) {
             return false;
         }
@@ -376,6 +385,22 @@ public final class SnowmanEvents {
                         snowman.getZ() + snowman.getRandom().nextGaussian() * 0.3D,
                         0, 0.7D, 0.7D, 0.5D, 1.0D
                 );
+            }
+        }
+    }
+
+    public static void onLevelTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.START
+                || !(event.level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        SNOWMAN_POTION_CLOUDS.keySet().removeIf(Entity::isRemoved);
+        for (AreaEffectCloud cloud : SNOWMAN_POTION_CLOUDS.keySet()) {
+            if (cloud.level() != serverLevel) {
+                continue;
+            }
+            for (ServerPlayer player : serverLevel.players()) {
+                cloud.victims.put(player, Integer.MAX_VALUE);
             }
         }
     }

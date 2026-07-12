@@ -33,6 +33,7 @@ public class SuperSnowmen {
         forgeBus.addListener(SnowmanEvents::onLivingDamage);
         forgeBus.addListener(SnowmanEvents::onLivingDrops);
         forgeBus.addListener(SnowmanEvents::onLivingTick);
+        forgeBus.addListener(SnowmanEvents::onLevelTick);
         forgeBus.addListener(SnowmanEvents::onStartTracking);
         forgeBus.addListener(SnowmanEvents::onMobEffectApplicable);
         forgeBus.addListener(SnowmanEvents::onExplosionDetonate);

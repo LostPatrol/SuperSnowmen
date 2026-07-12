@@ -14,6 +14,7 @@ public final class SnowmanUpgradeEffects {
     private static final double BASE_MAX_HEALTH = 4.0D;
     private static final String EGG_TIMER_TAG = "SuperSnowmenEggTimer";
     private static final String SET_BONUS_LEVEL_TAG = "SuperSnowmenSetBonusLevel";
+    private static final String GHAST_REGENERATION_AMPLIFIER_TAG = "SuperSnowmenGhastRegenerationAmplifier";
 
     private SnowmanUpgradeEffects() {
     }
@@ -39,6 +40,7 @@ public final class SnowmanUpgradeEffects {
     }
 
     public static void maintainEffects(SnowGolem snowman, SnowmanUpgradeInventory inventory) {
+        maintainSetBonus(snowman, inventory);
         if (inventory.hasProjectileUpgrade(SnowmanUpgradeType.FIRE_CHARGE)) {
             MobEffectInstance current = snowman.getEffect(MobEffects.FIRE_RESISTANCE);
             if (current == null || (current.getAmplifier() == 0 && current.getDuration() <= 20)) {
@@ -51,7 +53,11 @@ public final class SnowmanUpgradeEffects {
         } else {
             snowman.getPersistentData().remove(EGG_TIMER_TAG);
         }
-        maintainSetBonus(snowman, inventory);
+        if (inventory.hasProjectileUpgrade(SnowmanUpgradeType.GHAST_TEAR)) {
+            maintainGhastRegeneration(snowman);
+        } else {
+            snowman.getPersistentData().remove(GHAST_REGENERATION_AMPLIFIER_TAG);
+        }
     }
 
     private static void maintainSetBonus(SnowGolem snowman, SnowmanUpgradeInventory inventory) {
@@ -64,6 +70,7 @@ public final class SnowmanUpgradeEffects {
                 snowman.removeEffect(MobEffects.DAMAGE_RESISTANCE);
             }
             snowman.getPersistentData().putInt(SET_BONUS_LEVEL_TAG, level);
+            snowman.getPersistentData().remove(GHAST_REGENERATION_AMPLIFIER_TAG);
         }
         if (level > 0) {
             refreshEffect(snowman, MobEffects.REGENERATION, 40, level - 1);
@@ -71,6 +78,20 @@ public final class SnowmanUpgradeEffects {
         } else {
             snowman.getPersistentData().remove(SET_BONUS_LEVEL_TAG);
         }
+    }
+
+    private static void maintainGhastRegeneration(SnowGolem snowman) {
+        MobEffectInstance current = snowman.getEffect(MobEffects.REGENERATION);
+        boolean tracked = snowman.getPersistentData().contains(GHAST_REGENERATION_AMPLIFIER_TAG);
+        int previousAmplifier = snowman.getPersistentData().getInt(GHAST_REGENERATION_AMPLIFIER_TAG);
+        int amplifier = current == null ? 0 : current.getAmplifier();
+        if (current != null && (!tracked || amplifier != previousAmplifier || current.getDuration() > 40)) {
+            amplifier++;
+        }
+        if (current == null || current.getAmplifier() != amplifier || current.getDuration() <= 20) {
+            snowman.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, amplifier, false, true));
+        }
+        snowman.getPersistentData().putInt(GHAST_REGENERATION_AMPLIFIER_TAG, amplifier);
     }
 
     private static void refreshEffect(SnowGolem snowman, net.minecraft.world.effect.MobEffect effect, int duration) {
