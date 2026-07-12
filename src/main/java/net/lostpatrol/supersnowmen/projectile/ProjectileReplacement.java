@@ -372,6 +372,7 @@ public final class ProjectileReplacement {
     private static Entity createGhastFireball(Snowball snowball, SnowGolem owner, Vec3 direction) {
         LargeFireball fireball = new LargeFireball(owner.level(), owner, direction, 1);
         fireball.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
+        fireball.getPersistentData().putBoolean(NO_BLOCK_DAMAGE_TAG, true);
         return fireball;
     }
 
