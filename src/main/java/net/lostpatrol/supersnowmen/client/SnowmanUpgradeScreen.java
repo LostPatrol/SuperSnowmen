@@ -314,15 +314,6 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             effects.add(colored("gui.super_snowmen.effects.protection", 0xFFFFFF, romanLevel(diamonds)));
         }
 
-        ItemStack bow = upgrades.findBow();
-        if (!bow.isEmpty()) {
-            int bowColor = SnowmanUpgradeType.BOW.color();
-            effects.add(colored("gui.super_snowmen.effects.archery", bowColor));
-            addBowEnchantment(effects, bow, Enchantments.FLAMING_ARROWS, bowColor);
-            addBowEnchantment(effects, bow, Enchantments.POWER_ARROWS, bowColor);
-            addBowEnchantment(effects, bow, Enchantments.PUNCH_ARROWS, bowColor);
-            effects.add(colored("gui.super_snowmen.effects.extra_arrow", bowColor));
-        }
         SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(upgrades);
         boolean shulker = upgrades.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
         int armor = Math.min(30, (int)tier.armor + (shulker ? 20 : 0));
@@ -331,6 +322,15 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
         }
         if (tier.toughness > 0.0D) {
             effects.add(colored("gui.super_snowmen.effects.toughness", 0xFFFFFF, (int)tier.toughness));
+        }
+        ItemStack bow = upgrades.findBow();
+        if (!bow.isEmpty()) {
+            int bowColor = SnowmanUpgradeType.BOW.color();
+            effects.add(colored("gui.super_snowmen.effects.archery", bowColor));
+            addBowEnchantment(effects, bow, Enchantments.FLAMING_ARROWS, bowColor);
+            addBowEnchantment(effects, bow, Enchantments.POWER_ARROWS, bowColor);
+            addBowEnchantment(effects, bow, Enchantments.PUNCH_ARROWS, bowColor);
+            effects.add(colored("gui.super_snowmen.effects.extra_arrow", bowColor));
         }
         ItemStack crossbow = upgrades.findCrossbow();
         if (!crossbow.isEmpty() && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)) {
