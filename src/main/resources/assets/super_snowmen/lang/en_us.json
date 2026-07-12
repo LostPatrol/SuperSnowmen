@@ -53,6 +53,8 @@
   "gui.super_snowmen.effects.extra_trident": "Trident +5%",
   "gui.super_snowmen.effects.weatherproof_channeling": "All-weather Channeling",
   "gui.super_snowmen.effects.archery": "Archery",
+  "gui.super_snowmen.effects.extra_arrow": "Arrow +5%",
+  "gui.super_snowmen.effects.extra_firework_bolt": "Firework Bolt +5%",
   "gui.super_snowmen.effects.firework_party": "Firework Party",
   "gui.super_snowmen.effects.super_snowman": "Super Snowman",
   "gui.super_snowmen.effects.regeneration_i": "Regeneration I",

@@ -321,6 +321,7 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             addBowEnchantment(effects, bow, Enchantments.FLAMING_ARROWS, bowColor);
             addBowEnchantment(effects, bow, Enchantments.POWER_ARROWS, bowColor);
             addBowEnchantment(effects, bow, Enchantments.PUNCH_ARROWS, bowColor);
+            effects.add(colored("gui.super_snowmen.effects.extra_arrow", bowColor));
         }
         SnowmanUpgradeEffects.ArmorTier tier = SnowmanUpgradeEffects.armorTier(upgrades);
         boolean shulker = upgrades.hasProjectileUpgrade(SnowmanUpgradeType.SHULKER_SHELL);
@@ -332,10 +333,11 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             effects.add(colored("gui.super_snowmen.effects.toughness", 0xFFFFFF, (int)tier.toughness));
         }
         ItemStack crossbow = upgrades.findCrossbow();
-        if (!crossbow.isEmpty()
-                && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)
-                && EnchantmentHelper.getItemEnchantmentLevel(Enchantments.MULTISHOT, crossbow) > 0) {
-            effects.add(rainbow("gui.super_snowmen.effects.firework_party"));
+        if (!crossbow.isEmpty() && upgrades.hasProjectileUpgrade(SnowmanUpgradeType.FIREWORK_ROCKET)) {
+            effects.add(rainbow("gui.super_snowmen.effects.extra_firework_bolt"));
+            if (EnchantmentHelper.getItemEnchantmentLevel(Enchantments.MULTISHOT, crossbow) > 0) {
+                effects.add(rainbow("gui.super_snowmen.effects.firework_party"));
+            }
         }
         if (tier.climateImmune) {
             effects.add(colored("gui.super_snowmen.effects.climate_immunity", 0xFFB347));

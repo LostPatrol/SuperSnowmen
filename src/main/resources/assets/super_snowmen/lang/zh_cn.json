@@ -53,6 +53,8 @@
   "gui.super_snowmen.effects.extra_trident": "三叉戟 +5%",
   "gui.super_snowmen.effects.weatherproof_channeling": "全天候引雷",
   "gui.super_snowmen.effects.archery": "箭术",
+  "gui.super_snowmen.effects.extra_arrow": "箭 +5%",
+  "gui.super_snowmen.effects.extra_firework_bolt": "烟花弩箭 +5%",
   "gui.super_snowmen.effects.firework_party": "烟火派对",
   "gui.super_snowmen.effects.super_snowman": "Super Snowman",
   "gui.super_snowmen.effects.regeneration_i": "生命恢复 I",
