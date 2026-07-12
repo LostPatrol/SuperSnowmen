@@ -18,10 +18,12 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.TraceableEntity;
 import net.minecraft.world.entity.ai.goal.RangedAttackGoal;
 import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -30,8 +32,11 @@ import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.ThrownTrident;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityStruckByLightningEvent;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
@@ -45,6 +50,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.damagesource.CombatRules;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -116,10 +122,17 @@ public final class SnowmanEvents {
             installAttackGoal(snowman);
             SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> SnowmanUpgradeEffects.apply(snowman, inventory));
         }
+        tagSnowmanChannelingLightning(event);
         ProjectileReplacement.replaceSnowball(event);
     }
 
     public static void onLivingAttack(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof Player) {
+            if (isSnowGolemDamage(event.getSource())) {
+                event.setCanceled(true);
+            }
+            return;
+        }
         if (!(event.getEntity() instanceof SnowGolem snowman)) {
             return;
         }
@@ -145,6 +158,10 @@ public final class SnowmanEvents {
     }
 
     public static void onMobEffectApplicable(MobEffectEvent.Applicable event) {
+        if (event.getEntity() instanceof Player && isSnowGolemAttacker(event.getEffectSource())) {
+            event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
+            return;
+        }
         if (!(event.getEntity() instanceof SnowGolem snowman)) {
             return;
         }
@@ -160,7 +177,8 @@ public final class SnowmanEvents {
     }
 
     public static void onLivingHurt(LivingIncomingDamageEvent event) {
-        if (!(event.getSource().getEntity() instanceof SnowGolem snowman)) {
+        if (event.getEntity() instanceof Player
+                || !(event.getSource().getEntity() instanceof SnowGolem snowman)) {
             return;
         }
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
@@ -169,6 +187,13 @@ public final class SnowmanEvents {
                 event.setAmount(event.getAmount() + diamonds);
             }
         });
+    }
+
+    public static void onEntityStruckByLightning(EntityStruckByLightningEvent event) {
+        if (event.getEntity() instanceof Player
+                && event.getLightning().getPersistentData().getBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG)) {
+            event.setCanceled(true);
+        }
     }
 
     public static void onLivingDamage(LivingDamageEvent.Pre event) {
@@ -199,6 +224,7 @@ public final class SnowmanEvents {
         LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(serverLevel);
         if (lightning != null) {
             lightning.moveTo(Vec3.atBottomCenterOf(hitPos));
+            lightning.getPersistentData().putBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG, true);
             serverLevel.addFreshEntity(lightning);
             trident.getPersistentData().remove(ProjectileReplacement.WEATHERPROOF_CHANNELING_TAG);
         }
@@ -276,6 +302,45 @@ public final class SnowmanEvents {
         Entity directSource = event.getExplosion().getDirectSourceEntity();
         if (directSource != null && directSource.getPersistentData().getBoolean(ProjectileReplacement.NO_BLOCK_DAMAGE_TAG)) {
             event.getAffectedBlocks().clear();
+        }
+        if (isSnowGolemAttacker(event.getExplosion().getIndirectSourceEntity())
+                || isSnowGolemAttacker(directSource)) {
+            event.getAffectedEntities().removeIf(entity -> entity instanceof Player);
+        }
+    }
+
+    private static boolean isSnowGolemDamage(DamageSource source) {
+        return isSnowGolemAttacker(source.getEntity()) || isSnowGolemAttacker(source.getDirectEntity());
+    }
+
+    private static boolean isSnowGolemAttacker(@Nullable Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+        if (entity instanceof SnowGolem) {
+            return true;
+        }
+        if (entity instanceof TraceableEntity traceable) {
+            return traceable.getOwner() instanceof SnowGolem;
+        }
+        return false;
+    }
+
+    // Tag lightning that appears next to a snow-golem-owned trident.
+    private static void tagSnowmanChannelingLightning(EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide() || !(event.getEntity() instanceof LightningBolt lightning)) {
+            return;
+        }
+        if (lightning.getPersistentData().getBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG)) {
+            return;
+        }
+        Level level = event.getLevel();
+        AABB search = lightning.getBoundingBox().inflate(3.0D);
+        for (ThrownTrident trident : level.getEntitiesOfClass(ThrownTrident.class, search)) {
+            if (trident.getOwner() instanceof SnowGolem) {
+                lightning.getPersistentData().putBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG, true);
+                return;
+            }
         }
     }
 

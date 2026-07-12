@@ -57,6 +57,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 public final class ProjectileReplacement {
     public static final String NO_BLOCK_DAMAGE_TAG = "SuperSnowmenNoBlockDamage";
     public static final String WEATHERPROOF_CHANNELING_TAG = "SuperSnowmenWeatherproofChanneling";
+    public static final String SNOWMAN_LIGHTNING_TAG = "SuperSnowmenSnowmanLightning";
     private static final String WITHER_COUNTER_TAG = "SuperSnowmenWitherCounter";
     private static final double FULL_DRAW_ARROW_SPEED = 3.0D;
     private static final double ARROW_AIR_INERTIA = 0.99D;
