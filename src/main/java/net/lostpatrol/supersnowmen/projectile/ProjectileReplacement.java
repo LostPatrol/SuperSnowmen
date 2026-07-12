@@ -27,6 +27,7 @@ import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.entity.projectile.DragonFireball;
 import net.minecraft.world.entity.projectile.EvokerFangs;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.entity.projectile.LargeFireball;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ShulkerBullet;
 import net.minecraft.world.entity.projectile.SmallFireball;
@@ -40,7 +41,6 @@ import net.minecraft.world.entity.projectile.windcharge.WindCharge;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.FireworkExplosion;
 import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.item.enchantment.Enchantments;
@@ -99,7 +99,8 @@ public final class ProjectileReplacement {
         }
         Entity replacement = createReplacement(selected, snowball, snowman);
         boolean directEffect = selected.type == SnowmanUpgradeType.SCULK_SHRIEKER
-                || selected.type == SnowmanUpgradeType.TOTEM;
+                || selected.type == SnowmanUpgradeType.TOTEM
+                || selected.type == SnowmanUpgradeType.POTION;
         if (replacement == null && !directEffect) {
             playSnowballSound(snowman);
             return;
@@ -168,6 +169,7 @@ public final class ProjectileReplacement {
             case ARROW -> shootSelectedArrow(new Arrow(owner.level(), owner, new ItemStack(Items.ARROW), weapon(selected.bow)), snowball, owner, velocity, selected.bow);
             case SPECTRAL_ARROW -> shootSelectedArrow(new SpectralArrow(owner.level(), owner, new ItemStack(Items.SPECTRAL_ARROW), weapon(selected.bow)), snowball, owner, velocity, selected.bow);
             case FIRE_CHARGE -> createSmallFireball(snowball, owner, directDirection);
+            case GHAST_TEAR -> createGhastFireball(snowball, owner, directDirection);
             case FIREWORK_ROCKET -> createFireworkRocket(selected.stack, selected.crossbow, snowball, owner,
                     directDirection, velocity.length());
             case DRAGON_BREATH -> createDragonFireball(snowball, owner, directDirection);
@@ -182,7 +184,11 @@ public final class ProjectileReplacement {
                 yield null;
             }
             case TIPPED_ARROW -> createTippedArrow(selected.stack, selected.bow, snowball, owner, velocity);
-            case POTION, SPLASH_POTION -> createPotion(selected.stack, snowball, owner, velocity);
+            case POTION -> {
+                drinkPotion(selected.stack, owner);
+                yield null;
+            }
+            case SPLASH_POTION, LINGERING_POTION -> createThrownPotion(selected.stack, snowball, owner, velocity);
             case EGG -> copyMotion(new ThrownEgg(owner.level(), owner), snowball, velocity);
             case TRIDENT -> shootArrow(createTrident(selected.stack, owner), snowball, velocity);
             case SHULKER_SHELL -> createShulkerBullet(owner);
@@ -363,6 +369,12 @@ public final class ProjectileReplacement {
         return fireball;
     }
 
+    private static Entity createGhastFireball(Snowball snowball, SnowGolem owner, Vec3 direction) {
+        LargeFireball fireball = new LargeFireball(owner.level(), owner, direction, 1);
+        fireball.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
+        return fireball;
+    }
+
     private static Entity createDragonFireball(Snowball snowball, SnowGolem owner, Vec3 direction) {
         DragonFireball fireball = new DragonFireball(owner.level(), owner, direction);
         fireball.setPos(snowball.getX(), snowball.getY(), snowball.getZ());
@@ -498,11 +510,13 @@ public final class ProjectileReplacement {
         return shootSelectedArrow(arrow, snowball, owner, velocity, bow);
     }
 
-    private static Entity createPotion(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 velocity) {
-        ItemStack splash = new ItemStack(Items.SPLASH_POTION);
-        splash.set(DataComponents.POTION_CONTENTS, source.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY));
+    private static void drinkPotion(ItemStack source, SnowGolem owner) {
+        source.copyWithCount(1).finishUsingItem(owner.level(), owner);
+    }
+
+    private static Entity createThrownPotion(ItemStack source, Snowball snowball, SnowGolem owner, Vec3 velocity) {
         ThrownPotion potion = new ThrownPotion(owner.level(), owner);
-        potion.setItem(splash);
+        potion.setItem(source.copyWithCount(1));
         return copyMotion(potion, snowball, velocity);
     }
 
@@ -648,12 +662,14 @@ public final class ProjectileReplacement {
         SoundEvent sound = switch (type) {
             case ARROW, SPECTRAL_ARROW, TIPPED_ARROW -> SoundEvents.SKELETON_SHOOT;
             case FIRE_CHARGE -> SoundEvents.BLAZE_SHOOT;
+            case GHAST_TEAR -> SoundEvents.GHAST_SHOOT;
             case DRAGON_BREATH -> SoundEvents.ENDER_DRAGON_SHOOT;
             case TNT -> SoundEvents.TNT_PRIMED;
             case WITHER_SKULL -> SoundEvents.WITHER_SHOOT;
             case SCULK_SHRIEKER -> null;
             case TOTEM -> SoundEvents.EVOKER_CAST_SPELL;
-            case POTION, SPLASH_POTION -> SoundEvents.WITCH_THROW;
+            case POTION -> SoundEvents.GENERIC_DRINK;
+            case SPLASH_POTION, LINGERING_POTION -> SoundEvents.WITCH_THROW;
             case EGG -> SoundEvents.EGG_THROW;
             case TRIDENT -> SoundEvents.TRIDENT_THROW.value();
             case SHULKER_SHELL -> null;
@@ -674,7 +690,8 @@ public final class ProjectileReplacement {
         }
         boolean potionLike = selected.type == SnowmanUpgradeType.TIPPED_ARROW
                 || selected.type == SnowmanUpgradeType.POTION
-                || selected.type == SnowmanUpgradeType.SPLASH_POTION;
+                || selected.type == SnowmanUpgradeType.SPLASH_POTION
+                || selected.type == SnowmanUpgradeType.LINGERING_POTION;
         if (SuperSnowmenConfig.consumeProjectileItems || (potionLike && SuperSnowmenConfig.consumePotionProjectiles)) {
             inventory.extractItem(selected.slot, 1, false);
         }

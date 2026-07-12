@@ -262,6 +262,17 @@ public final class SnowmanEvents {
         }
     }
 
+    public static void onAreaEffectCloudTick(EntityTickEvent.Pre event) {
+        if (!(event.getEntity() instanceof AreaEffectCloud cloud)
+                || cloud.level().isClientSide()
+                || !(cloud.getOwner() instanceof SnowGolem)) {
+            return;
+        }
+        for (Player player : cloud.level().players()) {
+            cloud.victims.put(player, Integer.MAX_VALUE);
+        }
+    }
+
     public static void onStartTracking(PlayerEvent.StartTracking event) {
         if (event.getEntity() instanceof ServerPlayer player && event.getTarget() instanceof SnowGolem snowman) {
             boolean powered = snowman.getHealth() <= snowman.getMaxHealth() / 2.0F

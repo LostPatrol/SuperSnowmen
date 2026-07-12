@@ -18,7 +18,7 @@ public class UpgradeGuideScreen extends Screen {
     private static final int ROW_ALT = 0xFF404858;
     private static final int TEXT = 0xFFECEFF4;
     private static final int MUTED_TEXT = 0xFFB8C0CC;
-    private static final int ROW_HEIGHT = 34;
+    private static final int ROW_HEIGHT = 36;
 
     private final Screen parent;
     private double scrollAmount;
@@ -69,13 +69,13 @@ public class UpgradeGuideScreen extends Screen {
                     i % 2 == 0 ? ROW : ROW_ALT);
             SnowmanUpgradeType type = types.get(i);
             ItemStack icon = UpgradeDisplay.representativeStack(type);
-            graphics.renderItem(icon, panelLeft + 11, y + 9);
-            graphics.drawString(font, UpgradeDisplay.displayName(type), panelLeft + 34, y + 5, TEXT, false);
+            graphics.renderItem(icon, panelLeft + 11, y + 10);
+            graphics.drawString(font, UpgradeDisplay.displayName(type), panelLeft + 34, y + 4, TEXT, false);
             Component description = Component.translatable(
                     "gui.super_snowmen.guide." + type.name().toLowerCase(Locale.ROOT));
             List<net.minecraft.util.FormattedCharSequence> lines = font.split(description, panelWidth - 51);
             for (int line = 0; line < Math.min(2, lines.size()); line++) {
-                graphics.drawString(font, lines.get(line), panelLeft + 34, y + 17 + line * 9, MUTED_TEXT, false);
+                graphics.drawString(font, lines.get(line), panelLeft + 34, y + 15 + line * 9, MUTED_TEXT, false);
             }
         }
         graphics.disableScissor();

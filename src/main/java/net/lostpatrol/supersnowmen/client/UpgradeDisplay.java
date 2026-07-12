@@ -6,7 +6,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.alchemy.Potions;
 
-import java.util.Arrays;
 import java.util.List;
 
 public final class UpgradeDisplay {
@@ -14,17 +13,18 @@ public final class UpgradeDisplay {
     }
 
     public static SnowmanUpgradeType canonicalType(SnowmanUpgradeType type) {
-        return type == SnowmanUpgradeType.SPLASH_POTION ? SnowmanUpgradeType.POTION : type;
+        return type;
     }
 
     public static List<SnowmanUpgradeType> guideTypes() {
-        return Arrays.stream(SnowmanUpgradeType.values())
-                .filter(type -> type != SnowmanUpgradeType.SPLASH_POTION)
-                .toList();
+        return List.of(SnowmanUpgradeType.values());
     }
 
     public static ItemStack representativeStack(SnowmanUpgradeType type) {
-        if (type == SnowmanUpgradeType.TIPPED_ARROW || type == SnowmanUpgradeType.POTION) {
+        if (type == SnowmanUpgradeType.TIPPED_ARROW
+                || type == SnowmanUpgradeType.POTION
+                || type == SnowmanUpgradeType.SPLASH_POTION
+                || type == SnowmanUpgradeType.LINGERING_POTION) {
             return PotionContents.createItemStack(type.item(), Potions.STRONG_HEALING);
         }
         return new ItemStack(type.item());
@@ -34,8 +34,10 @@ public final class UpgradeDisplay {
         if (type == SnowmanUpgradeType.TIPPED_ARROW) {
             return Component.translatable("gui.super_snowmen.guide.any_tipped_arrow");
         }
-        if (type == SnowmanUpgradeType.POTION || type == SnowmanUpgradeType.SPLASH_POTION) {
-            return Component.translatable("gui.super_snowmen.guide.any_potion");
+        if (type == SnowmanUpgradeType.POTION
+                || type == SnowmanUpgradeType.SPLASH_POTION
+                || type == SnowmanUpgradeType.LINGERING_POTION) {
+            return Component.translatable("gui.super_snowmen.guide.any_" + type.name().toLowerCase(java.util.Locale.ROOT));
         }
         return representativeStack(type).getHoverName();
     }

@@ -356,9 +356,12 @@ public class SnowmanUpgradeScreen extends AbstractContainerScreen<SnowmanUpgrade
             effects.add(colored("gui.super_snowmen.effects.explosion_immunity", 0xF04444));
         }
         if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL)) {
-            effects.add(colored("gui.super_snowmen.effects.wither_immunity", 0xA8A8B3));
-            effects.add(colored("gui.super_snowmen.effects.projectile_field", 0x7F8C9D));
-            effects.add(colored("gui.super_snowmen.effects.kill_healing", 0x67C587));
+            effects.add(colored("gui.super_snowmen.effects.wither_immunity", 0x5A5A64));
+            effects.add(colored("gui.super_snowmen.effects.projectile_field", 0x5A5A64));
+            effects.add(colored("gui.super_snowmen.effects.kill_healing", 0x5A5A64));
+        }
+        if (upgrades.hasProjectileUpgrade(SnowmanUpgradeType.GHAST_TEAR)) {
+            effects.add(colored("gui.super_snowmen.effects.regeneration", 0x58C76F));
         }
         if (shulker) {
             effects.add(colored("gui.super_snowmen.effects.levitation_immunity", 0xD78BE6));
