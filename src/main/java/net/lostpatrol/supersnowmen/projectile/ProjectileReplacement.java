@@ -61,6 +61,8 @@ public final class ProjectileReplacement {
     private static final double FULL_DRAW_ARROW_SPEED = 3.0D;
     private static final double ARROW_AIR_INERTIA = 0.99D;
     private static final double ARROW_GRAVITY = 0.05D;
+    private static final double TNT_AIR_INERTIA = 0.98D;
+    private static final double TNT_GRAVITY = 0.04D;
     private static final DyeColor[] FIREWORK_COLORS = {
             DyeColor.WHITE, DyeColor.ORANGE, DyeColor.MAGENTA, DyeColor.LIGHT_BLUE,
             DyeColor.YELLOW, DyeColor.LIME, DyeColor.PINK, DyeColor.GRAY,
@@ -296,10 +298,57 @@ public final class ProjectileReplacement {
 
     private static Entity createTnt(Snowball snowball, SnowGolem owner, Vec3 velocity) {
         PrimedTnt tnt = new PrimedTnt(owner.level(), snowball.getX(), snowball.getY(), snowball.getZ(), owner);
-        tnt.setDeltaMovement(velocity);
+        LivingEntity target = owner.getTarget();
+        if (target != null) {
+            Vec3 origin = snowball.position();
+            Vec3 horizontalOffset = new Vec3(target.getX() - origin.x, 0.0D, target.getZ() - origin.z);
+            double horizontalDistance = horizontalOffset.length();
+            double stopShort = target.getBbWidth() * 0.5D + 0.4D;
+            double landingDistance = Math.max(0.0D, horizontalDistance - stopShort);
+            Vec3 landingPoint = horizontalDistance > 1.0E-4D
+                    ? origin.add(horizontalOffset.scale(landingDistance / horizontalDistance)).with(Direction.Axis.Y, target.getY())
+                    : new Vec3(origin.x, target.getY(), origin.z);
+            tnt.setDeltaMovement(calculateTntLaunchVelocity(origin, landingPoint));
+        } else {
+            tnt.setDeltaMovement(velocity);
+        }
         tnt.setFuse(40);
         tnt.getPersistentData().putBoolean(NO_BLOCK_DAMAGE_TAG, true);
         return tnt;
+    }
+
+    private static Vec3 calculateTntLaunchVelocity(Vec3 origin, Vec3 landingPoint) {
+        Vec3 displacement = landingPoint.subtract(origin);
+        double horizontalDistance = Math.sqrt(displacement.x * displacement.x + displacement.z * displacement.z);
+        int flightTicks = Mth.clamp(Mth.ceil(horizontalDistance / 0.65D), 6, 28);
+
+        double horizontalFactor = 0.0D;
+        double inertia = 1.0D;
+        for (int tick = 0; tick < flightTicks; tick++) {
+            horizontalFactor += inertia;
+            inertia *= TNT_AIR_INERTIA;
+        }
+
+        double zeroVelocityHeight = simulateTntVerticalDisplacement(0.0D, flightTicks);
+        double unitVelocityHeight = simulateTntVerticalDisplacement(1.0D, flightTicks);
+        double verticalFactor = unitVelocityHeight - zeroVelocityHeight;
+        double verticalVelocity = (displacement.y - zeroVelocityHeight) / verticalFactor;
+        return new Vec3(
+                displacement.x / horizontalFactor,
+                verticalVelocity,
+                displacement.z / horizontalFactor
+        );
+    }
+
+    private static double simulateTntVerticalDisplacement(double initialVelocity, int ticks) {
+        double position = 0.0D;
+        double velocity = initialVelocity;
+        for (int tick = 0; tick < ticks; tick++) {
+            velocity -= TNT_GRAVITY;
+            position += velocity;
+            velocity *= TNT_AIR_INERTIA;
+        }
+        return position;
     }
 
     private static Entity createSmallFireball(Snowball snowball, SnowGolem owner, Vec3 direction) {
