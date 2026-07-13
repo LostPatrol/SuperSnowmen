@@ -16,7 +16,7 @@ Super Snowmen is a Minecraft Java Edition Forge mod that lets players upgrade sn
 - Plugin slots: 20 one-item slots. Each installed plugin contributes 5% chance to replace a snowball projectile.
 - The GUI shows a GitHub-language-style composition bar for installed projectile plugins.
 - Special upgrade slots accept ice, packed ice, and blue ice. A full stack of 64 enables the corresponding tier.
-- Server config and admin commands control the feature switch and projectile item consumption.
+- Server config and admin commands control the feature switch, projectile item consumption, and damage-cooldown bypass.
 
 ## Projectile plugins
 
@@ -29,6 +29,7 @@ All commands require permission level 2.
 - `/supersnowmen enable <true|false>`
 - `/supersnowmen consumeProjectiles <true|false>`
 - `/supersnowmen consumePotionProjectiles <true|false>`
+- `/supersnowmen bypassDamageCooldown <true|false>`
 
 ## License
 
@@ -54,7 +55,7 @@ Super Snowmen 是一个 Minecraft Java Edition Forge 模组，用于通过 GUI �
 - 插件槽：20 个单物品槽。每个插件提供 5% 概率将雪球替换为对应发射物。
 - GUI 会展示类似 GitHub 仓库语言组成条的发射物组成条。
 - 特殊升级槽可放入冰、浮冰、蓝冰。数量达到 64 时启用对应等级。
-- 服务端配置和管理员命令可控制功能开关与发射物插件消耗规则。
+- 服务端配置和管理员命令可控制功能开关、发射物插件消耗及是否无视受伤冷却。
 
 ## 发射物插件
 
@@ -67,6 +68,7 @@ Super Snowmen 是一个 Minecraft Java Edition Forge 模组，用于通过 GUI �
 - `/supersnowmen enable <true|false>`
 - `/supersnowmen consumeProjectiles <true|false>`
 - `/supersnowmen consumePotionProjectiles <true|false>`
+- `/supersnowmen bypassDamageCooldown <true|false>`
 
 ## 许可证
 

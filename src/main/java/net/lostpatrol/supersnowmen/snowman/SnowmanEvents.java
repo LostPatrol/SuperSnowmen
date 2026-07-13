@@ -193,7 +193,8 @@ public final class SnowmanEvents {
     public static void onSnowmanDamageCooldown(LivingAttackEvent event) {
         LivingEntity target = event.getEntity();
         DamageSource source = event.getSource();
-        if (target instanceof Player
+        if (!SuperSnowmenConfig.bypassDamageCooldown
+                || target instanceof Player
                 || target.level().isClientSide
                 || target.isDeadOrDying()
                 || target.isInvulnerableTo(source)
@@ -552,6 +553,14 @@ public final class SnowmanEvents {
                                     boolean value = BoolArgumentType.getBool(ctx, "value");
                                     SuperSnowmenConfig.setConsumePotionProjectiles(value);
                                     ctx.getSource().sendSuccess(() -> Component.translatable("commands.super_snowmen.consume_potion_projectiles", value), true);
+                                    return 1;
+                                })))
+                .then(Commands.literal("bypassDamageCooldown")
+                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                .executes(ctx -> {
+                                    boolean value = BoolArgumentType.getBool(ctx, "value");
+                                    SuperSnowmenConfig.setBypassDamageCooldown(value);
+                                    ctx.getSource().sendSuccess(() -> Component.translatable("commands.super_snowmen.bypass_damage_cooldown", value), true);
                                     return 1;
                                 }))));
     }
