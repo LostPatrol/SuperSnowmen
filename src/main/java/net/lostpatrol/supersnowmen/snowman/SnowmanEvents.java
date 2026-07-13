@@ -23,6 +23,7 @@ import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TraceableEntity;
 import net.minecraft.world.entity.ai.goal.RangedAttackGoal;
 import net.minecraft.world.entity.animal.SnowGolem;
@@ -52,11 +53,15 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.damagesource.CombatRules;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.WeakHashMap;
 
 public final class SnowmanEvents {
     private static final Map<SnowGolem, Boolean> POWERED_STATES = new WeakHashMap<>();
+    private static final Map<Entity, DamageSegmentBatch> DAMAGE_SEGMENTS = new WeakHashMap<>();
 
     private SnowmanEvents() {
     }
@@ -155,6 +160,15 @@ public final class SnowmanEvents {
                 event.setCanceled(true);
             }
         });
+    }
+
+    public static void onSnowmanDamageCooldown(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof Player
+                || event.getEntity().level().isClientSide
+                || !shouldBypassDamageCooldown(event.getSource(), event.getEntity())) {
+            return;
+        }
+        event.getEntity().invulnerableTime = 0;
     }
 
     public static void onMobEffectApplicable(MobEffectEvent.Applicable event) {
@@ -324,6 +338,23 @@ public final class SnowmanEvents {
         return isSnowGolemAttacker(source.getEntity()) || isSnowGolemAttacker(source.getDirectEntity());
     }
 
+    private static boolean shouldBypassDamageCooldown(DamageSource source, LivingEntity target) {
+        Entity directEntity = source.getDirectEntity();
+        if (directEntity instanceof AreaEffectCloud || directEntity instanceof LightningBolt || !isSnowGolemDamage(source)) {
+            return false;
+        }
+        if (directEntity == null || directEntity instanceof SnowGolem) {
+            return true;
+        }
+        long gameTime = target.level().getGameTime();
+        DamageSegmentBatch batch = DAMAGE_SEGMENTS.computeIfAbsent(directEntity, ignored -> new DamageSegmentBatch());
+        if (batch.gameTime != gameTime) {
+            batch.gameTime = gameTime;
+            batch.targets.clear();
+        }
+        return batch.targets.add(target.getUUID());
+    }
+
     private static boolean isSnowGolemAttacker(@Nullable Entity entity) {
         if (entity == null) {
             return false;
@@ -335,6 +366,11 @@ public final class SnowmanEvents {
             return traceable.getOwner() instanceof SnowGolem;
         }
         return false;
+    }
+
+    private static final class DamageSegmentBatch {
+        private long gameTime = Long.MIN_VALUE;
+        private final Set<UUID> targets = new HashSet<>();
     }
 
     // Tag lightning that appears next to a snow-golem-owned trident.
