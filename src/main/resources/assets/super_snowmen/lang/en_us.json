@@ -28,7 +28,7 @@
   "gui.super_snowmen.guide.lingering_potion": "Throws any lingering potion; consumption is server-configurable.",
   "gui.super_snowmen.guide.egg": "Throws eggs, and gains Slow Falling... and lays eggs like a chicken.",
   "gui.super_snowmen.guide.trident": "Throws the equipped trident and preserves Impaling and Channeling.",
-  "gui.super_snowmen.guide.shulker_shell": "Fires a homing shulker bullet, grants high armor, and grants Levitation immunity.",
+  "gui.super_snowmen.guide.shulker_shell": "Fires a shulker bullet, grants high armor, and grants Levitation immunity.",
   "gui.super_snowmen.guide.lightning_rod": "Only one may be installed; adds 5% Trident, and Channeling ignores weather requirements.",
   "gui.super_snowmen.guide.bow": "Only one may be installed; adds 5% Arrow and applies a fully drawn bow's Power, Punch, and Flame to regular, spectral, and tipped arrows without consuming durability.",
   "gui.super_snowmen.guide.crossbow": "Only one may be installed; adds no projectile alone, adds 5% Firework Bolt with a rocket installed, and Multishot fires three rockets per volley.",
@@ -91,5 +91,6 @@
   "gui.super_snowmen.projectile.snowball": "Snowball",
   "commands.super_snowmen.enable": "Super Snowmen upgrades enabled: %s",
   "commands.super_snowmen.consume_projectiles": "Consume projectile plugin items: %s",
-  "commands.super_snowmen.consume_potion_projectiles": "Consume potion projectile items: %s"
+  "commands.super_snowmen.consume_potion_projectiles": "Consume potion projectile items: %s",
+  "commands.super_snowmen.bypass_damage_cooldown": "Snow golem attacks bypass damage cooldown: %s"
 }

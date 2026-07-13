@@ -28,7 +28,7 @@
   "gui.super_snowmen.guide.lingering_potion": "投掷任意滞留药水；可在服务端配置是否消耗。",
   "gui.super_snowmen.guide.egg": "投掷鸡蛋，并像鸡一样缓降……和下蛋。",
   "gui.super_snowmen.guide.trident": "投掷所装备的三叉戟，并保留穿刺与引雷效果。",
-  "gui.super_snowmen.guide.shulker_shell": "发射追踪型潜影贝飞弹，获得高额护甲并免疫漂浮效果。",
+  "gui.super_snowmen.guide.shulker_shell": "发射潜影贝飞弹，获得高额护甲并免疫漂浮效果。",
   "gui.super_snowmen.guide.lightning_rod": "最多装备一个；存在三叉戟时额外提供5%三叉戟，与引雷三叉戟组合可无视天气发动引雷。",
   "gui.super_snowmen.guide.bow": "最多装备一把；提供5%普通箭，并使普通箭、光灵箭和药水箭获得满蓄力弓的力量、冲击与火矢效果，且不消耗弓耐久。",
   "gui.super_snowmen.guide.crossbow": "最多装备一把；单独不提供发射物，与烟花火箭组合时额外提供5%烟花弩箭，多重射击会使每次烟花弩箭齐射三发。",
@@ -91,5 +91,6 @@
   "gui.super_snowmen.projectile.snowball": "雪球",
   "commands.super_snowmen.enable": "Super Snowmen 升级启用: %s",
   "commands.super_snowmen.consume_projectiles": "消耗发射物插件物品: %s",
-  "commands.super_snowmen.consume_potion_projectiles": "消耗药水类发射物物品: %s"
+  "commands.super_snowmen.consume_potion_projectiles": "消耗药水类发射物物品: %s",
+  "commands.super_snowmen.bypass_damage_cooldown": "雪傀儡攻击无视受伤冷却: %s"
 }

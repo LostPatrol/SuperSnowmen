@@ -507,7 +507,7 @@ public final class ProjectileReplacement {
     }
 
     private static Entity createTippedArrow(ItemStack source, ItemStack bow, Snowball snowball, SnowGolem owner, Vec3 velocity) {
-        Arrow arrow = new Arrow(owner.level(), owner, source.copyWithCount(1), weapon(bow));
+        Arrow arrow = new SnowmanTippedArrow(owner.level(), owner, source.copyWithCount(1), weapon(bow));
         return shootSelectedArrow(arrow, snowball, owner, velocity, bow);
     }
 

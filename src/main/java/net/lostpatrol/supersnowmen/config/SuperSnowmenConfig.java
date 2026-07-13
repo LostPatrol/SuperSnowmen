@@ -22,11 +22,16 @@ public final class SuperSnowmenConfig {
             .comment("Consume tipped arrows and potions when they are selected as replacement projectiles.")
             .define("consumePotionProjectiles", true);
 
+    private static final ModConfigSpec.BooleanValue BYPASS_DAMAGE_COOLDOWN = BUILDER
+            .comment("Allow snow golem attacks to bypass the target's damage cooldown.")
+            .define("bypassDamageCooldown", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     public static boolean enableUpgrades = true;
     public static boolean consumeProjectileItems = false;
     public static boolean consumePotionProjectiles = true;
+    public static boolean bypassDamageCooldown = true;
 
     private SuperSnowmenConfig() {
     }
@@ -36,6 +41,7 @@ public final class SuperSnowmenConfig {
         enableUpgrades = ENABLE_UPGRADES.get();
         consumeProjectileItems = CONSUME_PROJECTILE_ITEMS.get();
         consumePotionProjectiles = CONSUME_POTION_PROJECTILES.get();
+        bypassDamageCooldown = BYPASS_DAMAGE_COOLDOWN.get();
     }
 
     public static void setEnableUpgrades(boolean value) {
@@ -54,5 +60,11 @@ public final class SuperSnowmenConfig {
         CONSUME_POTION_PROJECTILES.set(value);
         CONSUME_POTION_PROJECTILES.save();
         consumePotionProjectiles = value;
+    }
+
+    public static void setBypassDamageCooldown(boolean value) {
+        BYPASS_DAMAGE_COOLDOWN.set(value);
+        BYPASS_DAMAGE_COOLDOWN.save();
+        bypassDamageCooldown = value;
     }
 }
