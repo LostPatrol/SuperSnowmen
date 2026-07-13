@@ -251,7 +251,7 @@ public final class SnowmanEvents {
         }
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
             int diamonds = inventory.getStackInSlot(SnowmanUpgradeInventory.BASE_DIAMOND_SLOT).getCount();
-            if (diamonds > 0) {
+            if (diamonds > 0 && claimDiamondBonus(event.getSource(), event.getEntity())) {
                 event.setAmount(event.getAmount() + diamonds);
             }
         });
@@ -492,6 +492,15 @@ public final class SnowmanEvents {
         return batch.targets.add(target.getUUID());
     }
 
+    private static boolean claimDiamondBonus(DamageSource source, LivingEntity target) {
+        Entity directEntity = source.getDirectEntity();
+        if (directEntity == null || directEntity instanceof SnowGolem) {
+            return true;
+        }
+        return DAMAGE_SEGMENTS.computeIfAbsent(directEntity, ignored -> new DamageSegmentBatch())
+                .diamondTargets.add(target.getUUID());
+    }
+
     private static boolean isSnowGolemAttacker(@Nullable Entity entity) {
         if (entity == null) {
             return false;
@@ -508,6 +517,7 @@ public final class SnowmanEvents {
     private static final class DamageSegmentBatch {
         private long gameTime = Long.MIN_VALUE;
         private final Set<UUID> targets = new HashSet<>();
+        private final Set<UUID> diamondTargets = new HashSet<>();
     }
 
     // Tag lightning that appears next to a snow-golem-owned trident.
