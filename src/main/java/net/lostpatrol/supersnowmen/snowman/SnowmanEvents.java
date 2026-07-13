@@ -17,6 +17,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AreaEffectCloud;
@@ -133,12 +134,16 @@ public final class SnowmanEvents {
 
     public static void onLivingAttack(LivingIncomingDamageEvent event) {
         if (event.getEntity() instanceof Player) {
-            if (isSnowGolemDamage(event.getSource())) {
+            if (isSnowGolemFriendlyDamage(event.getSource())) {
                 event.setCanceled(true);
             }
             return;
         }
         if (!(event.getEntity() instanceof SnowGolem snowman)) {
+            return;
+        }
+        if (isSnowGolemFriendlyDamage(event.getSource())) {
+            event.setCanceled(true);
             return;
         }
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
@@ -165,6 +170,7 @@ public final class SnowmanEvents {
     public static void onSnowmanDamageCooldown(LivingIncomingDamageEvent event) {
         if (!SuperSnowmenConfig.bypassDamageCooldown
                 || event.getEntity() instanceof Player
+                || (event.getEntity() instanceof SnowGolem && isSnowGolemFriendlyDamage(event.getSource()))
                 || event.getEntity().level().isClientSide
                 || !shouldBypassDamageCooldown(event.getSource(), event.getEntity())) {
             return;
@@ -180,6 +186,11 @@ public final class SnowmanEvents {
         if (!(event.getEntity() instanceof SnowGolem snowman)) {
             return;
         }
+        if (event.getEffectInstance().getEffect().value().getCategory() == MobEffectCategory.HARMFUL
+                && isSnowGolemAttacker(event.getEffectSource())) {
+            event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
+            return;
+        }
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
             boolean rejectWither = event.getEffectInstance().getEffect() == MobEffects.WITHER
                     && inventory.hasProjectileUpgrade(SnowmanUpgradeType.WITHER_SKULL);
@@ -192,7 +203,7 @@ public final class SnowmanEvents {
     }
 
     public static void onLivingHurt(LivingIncomingDamageEvent event) {
-        if (event.getEntity() instanceof Player
+        if (event.getEntity() instanceof Player || event.getEntity() instanceof SnowGolem
                 || !(event.getSource().getEntity() instanceof SnowGolem snowman)) {
             return;
         }
@@ -205,7 +216,7 @@ public final class SnowmanEvents {
     }
 
     public static void onEntityStruckByLightning(EntityStruckByLightningEvent event) {
-        if (event.getEntity() instanceof Player
+        if ((event.getEntity() instanceof Player || event.getEntity() instanceof SnowGolem)
                 && event.getLightning().getPersistentData().getBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG)) {
             event.setCanceled(true);
         }
@@ -331,8 +342,16 @@ public final class SnowmanEvents {
         }
         if (isSnowGolemAttacker(event.getExplosion().getIndirectSourceEntity())
                 || isSnowGolemAttacker(directSource)) {
-            event.getAffectedEntities().removeIf(entity -> entity instanceof Player);
+            event.getAffectedEntities().removeIf(entity -> entity instanceof Player || entity instanceof SnowGolem);
         }
+    }
+
+    private static boolean isSnowGolemFriendlyDamage(DamageSource source) {
+        if (isSnowGolemDamage(source)) {
+            return true;
+        }
+        return source.getDirectEntity() instanceof LightningBolt lightning
+                && lightning.getPersistentData().getBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG);
     }
 
     private static boolean isSnowGolemDamage(DamageSource source) {
