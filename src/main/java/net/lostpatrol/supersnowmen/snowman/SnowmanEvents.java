@@ -20,6 +20,7 @@ import net.minecraft.world.damagesource.CombatRules;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.AreaEffectCloud;
@@ -161,12 +162,16 @@ public final class SnowmanEvents {
 
     public static void onLivingAttack(LivingAttackEvent event) {
         if (event.getEntity() instanceof Player) {
-            if (isSnowGolemDamage(event.getSource())) {
+            if (isSnowGolemFriendlyDamage(event.getSource())) {
                 event.setCanceled(true);
             }
             return;
         }
         if (!(event.getEntity() instanceof SnowGolem snowman)) {
+            return;
+        }
+        if (isSnowGolemFriendlyDamage(event.getSource())) {
+            event.setCanceled(true);
             return;
         }
         SnowmanUpgradeAccess.get(snowman).ifPresent(inventory -> {
@@ -195,6 +200,7 @@ public final class SnowmanEvents {
         DamageSource source = event.getSource();
         if (!SuperSnowmenConfig.bypassDamageCooldown
                 || target instanceof Player
+                || (target instanceof SnowGolem && isSnowGolemFriendlyDamage(source))
                 || target.level().isClientSide
                 || target.isDeadOrDying()
                 || target.isInvulnerableTo(source)
@@ -222,30 +228,35 @@ public final class SnowmanEvents {
 
     // Forge posts Added before put/update; restore previous effect after addEffect returns.
     public static void onMobEffectAdded(MobEffectEvent.Added event) {
-        if (!(event.getEntity() instanceof Player player)
-                || player.level().isClientSide()
+        LivingEntity target = event.getEntity();
+        boolean protectPlayer = target instanceof Player;
+        boolean protectSnowman = target instanceof SnowGolem
+                && event.getEffectInstance().getEffect().getCategory() == MobEffectCategory.HARMFUL;
+        var server = target.getServer();
+        if ((!protectPlayer && !protectSnowman)
+                || target.level().isClientSide()
                 || !isSnowGolemAttacker(event.getEffectSource())
-                || player.getServer() == null) {
+                || server == null) {
             return;
         }
         MobEffect type = event.getEffectInstance().getEffect();
         MobEffectInstance previous = event.getOldEffectInstance();
         MobEffectInstance restore = previous == null ? null : new MobEffectInstance(previous);
-        player.getServer().execute(() -> {
-            if (!player.isAlive()) {
+        server.execute(() -> {
+            if (!target.isAlive()) {
                 return;
             }
             if (restore == null) {
-                player.removeEffect(type);
+                target.removeEffect(type);
             } else {
-                player.removeEffect(type);
-                player.addEffect(restore);
+                target.removeEffect(type);
+                target.addEffect(restore);
             }
         });
     }
 
     public static void onLivingHurt(LivingHurtEvent event) {
-        if (event.getEntity() instanceof Player
+        if (event.getEntity() instanceof Player || event.getEntity() instanceof SnowGolem
                 || !(event.getSource().getEntity() instanceof SnowGolem snowman)) {
             return;
         }
@@ -258,7 +269,7 @@ public final class SnowmanEvents {
     }
 
     public static void onEntityStruckByLightning(EntityStruckByLightningEvent event) {
-        if (event.getEntity() instanceof Player
+        if ((event.getEntity() instanceof Player || event.getEntity() instanceof SnowGolem)
                 && event.getLightning().getPersistentData().getBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG)) {
             event.setCanceled(true);
         }
@@ -467,8 +478,16 @@ public final class SnowmanEvents {
         }
         if (isSnowGolemAttacker(event.getExplosion().getIndirectSourceEntity())
                 || isSnowGolemAttacker(directSource)) {
-            event.getAffectedEntities().removeIf(entity -> entity instanceof Player);
+            event.getAffectedEntities().removeIf(entity -> entity instanceof Player || entity instanceof SnowGolem);
         }
+    }
+
+    private static boolean isSnowGolemFriendlyDamage(DamageSource source) {
+        if (isSnowGolemDamage(source)) {
+            return true;
+        }
+        return source.getDirectEntity() instanceof LightningBolt lightning
+                && lightning.getPersistentData().getBoolean(ProjectileReplacement.SNOWMAN_LIGHTNING_TAG);
     }
 
     private static boolean isSnowGolemDamage(DamageSource source) {
