@@ -28,7 +28,6 @@ Plugins can also grant passive defenses and combine into stronger synergies.
 - Side: client and server. Install the mod on both sides for multiplayer.
 - Dependencies: no additional mods are required.
 - Mod ID: `super_snowmen`
-- License: [MIT](LICENSE)
 - Issues: [GitHub issue tracker](https://github.com/LostPatrol/SuperSnowmen/issues)
 
 
