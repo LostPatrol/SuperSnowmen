@@ -12,7 +12,7 @@ Super Snowmen把雪傀儡变成可自由配置的~~超人~~战斗伙伴。
 
 右键打开专用升级栏，强化基础属性，再用原版物品填充 20 个插件槽，让雪球变成箭、火球、药水、TNT、音波等攻击。
 
-部分插件还会提供常驻防御能力，并能与其他插件组成联动。
+部分插件还会提供常驻能力，并能与其他插件组成联动。
 
 ![升级后的雪傀儡与怪物战斗](publish/assets/demo/common/snow_golem_battle_01.png)
 
@@ -28,7 +28,6 @@ Super Snowmen把雪傀儡变成可自由配置的~~超人~~战斗伙伴。
 - 运行端：客户端与服务端；多人游戏时两端都要安装。
 - 依赖mod：无
 - 模组 ID：`super_snowmen`
-- 许可证：[MIT](LICENSE)
 - 问题反馈：[GitHub Issues](https://github.com/LostPatrol/SuperSnowmen/issues)
 
 
